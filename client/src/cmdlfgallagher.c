@@ -277,7 +277,7 @@ static int CmdGallagherClone(const char *Cmd) {
         res = clone_t55xx_tag(blocks, ARRAYLEN(blocks));
     }
     PrintAndLogEx(SUCCESS, "Done!");
-    PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`lf gallagher reader`") " to verify");
+    PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`lf gallagher reader`") " to verify");
     return res;
 }
 
@@ -363,6 +363,10 @@ static int CmdGallagherSim(const char *Cmd) {
     bytes_to_bytebits(raw, sizeof(raw), bs);
 
     lf_asksim_t *payload = calloc(1, sizeof(lf_asksim_t) + sizeof(bs));
+    if (payload == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return PM3_EMALLOC;
+    }
     payload->encoding = 1;
     payload->invert = 0;
     payload->separator = 0;

@@ -58,6 +58,9 @@ static int CmdHelp(const char *Cmd);
 
 static int getFDXBBits(uint64_t national_code, uint16_t country_code, uint8_t is_animal, uint8_t is_extended, uint32_t extended, uint8_t *bits) {
 
+    if (bits == NULL) {
+        return PM3_ESOFT;
+    }
     // add preamble ten 0x00 and one 0x01
     memset(bits, 0x00, 10);
     bits[10] = 1;
@@ -803,7 +806,7 @@ static int CmdFdxBClone(const char *Cmd) {
         res = clone_t55xx_tag(blocks, ARRAYLEN(blocks));
     }
     PrintAndLogEx(SUCCESS, "Done!");
-    PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`lf fdxb reader`") " to verify");
+    PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`lf fdxb reader`") " to verify");
     return res;
 }
 
@@ -855,6 +858,10 @@ static int CmdFdxBSim(const char *Cmd) {
     PrintAndLogEx(SUCCESS, "Simulating FDX-B animal ID: " _YELLOW_("%04u-%"PRIu64), country_code, national_code);
 
     uint8_t *bs = calloc(128, sizeof(uint8_t));
+    if (bs == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return PM3_EMALLOC;
+    }
     if (getFDXBBits(national_code, country_code, is_animal, (extended > 0), extended, bs) != PM3_SUCCESS) {
         PrintAndLogEx(ERR, "Error with tag bitstream generation.");
         free(bs);
@@ -863,6 +870,11 @@ static int CmdFdxBSim(const char *Cmd) {
 
     // 32, no STT, BIPHASE INVERTED == diphase
     lf_asksim_t *payload = calloc(1, sizeof(lf_asksim_t) + 128);
+    if (payload == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        free(bs);
+        return PM3_EMALLOC;
+    }
     payload->encoding = 2;
     payload->invert = 1;
     payload->separator = 0;

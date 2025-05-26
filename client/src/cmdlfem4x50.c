@@ -215,7 +215,7 @@ static int CmdEM4x50ELoad(const char *Cmd) {
 
     // upload to emulator memory
     em4x50_seteml(data, 0, EM4X50_DUMP_FILESIZE);
-    PrintAndLogEx(HINT, "You are ready to simulate. See " _YELLOW_("`lf em 4x50 sim -h`"));
+    PrintAndLogEx(HINT, "Hint: You are ready to simulate. See `" _YELLOW_("lf em 4x50 sim -h") "`");
     PrintAndLogEx(INFO, "Done!");
     return PM3_SUCCESS;
 }
@@ -341,7 +341,7 @@ static int CmdEM4x50Login(const char *Cmd) {
     PacketResponseNG resp;
     SendCommandNG(CMD_LF_EM4X50_LOGIN, (uint8_t *)&password, sizeof(password));
     if (WaitForResponseTimeout(CMD_LF_EM4X50_LOGIN, &resp, 2000) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -631,7 +631,7 @@ int em4x50_read(em4x50_data_t *etd, em4x50_word_t *out) {
     SendCommandNG(CMD_LF_EM4X50_READ, (uint8_t *)&edata, sizeof(edata));
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_EM4X50_READ, &resp, EM4X50_TIMEOUT_CMD) == false) {
-        PrintAndLogEx(WARNING, "(em4x50) timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "(em4x50) timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -740,7 +740,7 @@ static int CmdEM4x50Info(const char *Cmd) {
     SendCommandNG(CMD_LF_EM4X50_INFO, (uint8_t *)&etd, sizeof(etd));
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_EM4X50_INFO, &resp, EM4X50_TIMEOUT_CMD) == false) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -863,7 +863,7 @@ static int CmdEM4x50Dump(const char *Cmd) {
     SendCommandNG(CMD_LF_EM4X50_INFO, (uint8_t *)&etd, sizeof(etd));
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_EM4X50_INFO, &resp, EM4X50_TIMEOUT_CMD) == false) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -962,7 +962,7 @@ static int CmdEM4x50Write(const char *Cmd) {
     SendCommandNG(CMD_LF_EM4X50_WRITE, (uint8_t *)&etd, sizeof(etd));
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_EM4X50_WRITE, &resp, EM4X50_TIMEOUT_CMD) == false) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -983,7 +983,7 @@ static int CmdEM4x50Write(const char *Cmd) {
     em4x50_prepare_result(data, addr, addr, words);
     em4x50_print_result(words, addr, addr);
     PrintAndLogEx(SUCCESS, "Write ( " _GREEN_("ok") " )");
-    PrintAndLogEx(HINT, "Try `" _YELLOW_("lf em 4x50 rdbl -b %u") "` - to read your data", addr);
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("lf em 4x50 rdbl -b %u") "` - to read your data", addr);
     PrintAndLogEx(INFO, "Done!");
     return PM3_SUCCESS;
 }
@@ -1033,7 +1033,7 @@ static int CmdEM4x50WritePwd(const char *Cmd) {
     clearCommandBuffer();
     SendCommandNG(CMD_LF_EM4X50_WRITEPWD, (uint8_t *)&etd, sizeof(etd));
     if (WaitForResponseTimeout(CMD_LF_EM4X50_WRITEPWD, &resp, EM4X50_TIMEOUT_CMD) == false) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -1091,7 +1091,7 @@ static int CmdEM4x50Wipe(const char *Cmd) {
     clearCommandBuffer();
     SendCommandNG(CMD_LF_EM4X50_WRITEPWD, (uint8_t *)&etd, sizeof(etd));
     if (WaitForResponseTimeout(CMD_LF_EM4X50_WRITEPWD, &resp, EM4X50_TIMEOUT_CMD) == false) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -1117,7 +1117,7 @@ static int CmdEM4x50Wipe(const char *Cmd) {
         clearCommandBuffer();
         SendCommandNG(CMD_LF_EM4X50_WRITE, (uint8_t *)&etd, sizeof(etd));
         if (WaitForResponseTimeout(CMD_LF_EM4X50_WRITE, &resp, EM4X50_TIMEOUT_CMD) == false) {
-            PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+            PrintAndLogEx(WARNING, "timeout while waiting for reply");
             return PM3_ETIMEOUT;
         }
 
@@ -1213,7 +1213,7 @@ static int CmdEM4x50Restore(const char *Cmd) {
         SendCommandNG(CMD_LF_EM4X50_WRITE, (uint8_t *)&etd, sizeof(etd));
         if (WaitForResponseTimeout(CMD_LF_EM4X50_WRITE, &resp, EM4X50_TIMEOUT_CMD) == false) {
             PrintAndLogEx(NORMAL, "");
-            PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+            PrintAndLogEx(WARNING, "timeout while waiting for reply");
             return PM3_ETIMEOUT;
         }
 

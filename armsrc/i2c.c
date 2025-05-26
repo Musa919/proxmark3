@@ -783,7 +783,6 @@ bool GetATR(smart_card_atr_t *card_ptr, bool verbose) {
         return false;
     }
 
-
     card_ptr->atr_len = 0;
     memset(card_ptr->atr, 0, sizeof(card_ptr->atr));
 
@@ -858,7 +857,7 @@ void SmartCardRaw(const smart_card_raw_t *p) {
     LED_D_ON();
 
     uint16_t len = 0;
-    uint8_t *resp = BigBuf_malloc(ISO7816_MAX_FRAME);
+    uint8_t *resp = BigBuf_calloc(ISO7816_MAX_FRAME);
     // check if alloacted...
     smartcard_command_t flags = p->flags;
 
@@ -938,7 +937,7 @@ void SmartCardUpgrade(uint64_t arg0) {
     bool isOK = true;
     uint16_t length = arg0, pos = 0;
     const uint8_t *fwdata = BigBuf_get_addr();
-    uint8_t *verfiydata = BigBuf_malloc(I2C_BLOCK_SIZE);
+    uint8_t *verfiydata = BigBuf_calloc(I2C_BLOCK_SIZE);
 
     while (length) {
 

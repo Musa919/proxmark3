@@ -94,13 +94,17 @@ static char *commaprint(size_t n) {
 
 // set the g_DemodBuffer with given array ofq binary (one bit per byte)
 void setDemodBuff(const uint8_t *buff, size_t size, size_t start_idx) {
-    if (buff == NULL) return;
+    if (buff == NULL) {
+        return;
+    }
 
-    if (size > MAX_DEMOD_BUF_LEN - start_idx)
+    if (size > MAX_DEMOD_BUF_LEN - start_idx) {
         size = MAX_DEMOD_BUF_LEN - start_idx;
+    }
 
-    for (size_t i = 0; i < size; i++)
+    for (size_t i = 0; i < size; i++) {
         g_DemodBuffer[i] = buff[start_idx++];
+    }
 
     g_DemodBufferLen = size;
 }
@@ -254,7 +258,7 @@ int printDemodBuff(uint8_t offset, bool strip_leading, bool invert, bool print_h
 
     uint8_t *buf = calloc(len, sizeof(uint8_t));
     if (buf == NULL) {
-        PrintAndLogEx(WARNING, "fail, cannot allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     memcpy(buf, g_DemodBuffer, len);
@@ -420,7 +424,7 @@ int ASKDemod_ext(int clk, int invert, int maxErr, size_t maxlen, bool amplify, b
 
     uint8_t *bits = calloc(MAX_GRAPH_TRACE_LEN, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(INFO, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -595,7 +599,7 @@ static int Cmdmandecoderaw(const char *Cmd) {
 
     uint8_t *bits = calloc(MAX_DEMOD_BUF_LEN, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -692,7 +696,7 @@ static int CmdBiphaseDecodeRaw(const char *Cmd) {
 
     uint8_t *bits = calloc(MAX_DEMOD_BUF_LEN, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -733,7 +737,7 @@ int ASKbiphaseDemod(int offset, int clk, int invert, int maxErr, bool verbose) {
 
     uint8_t *bs = calloc(MAX_DEMOD_BUF_LEN, sizeof(uint8_t));
     if (bs == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -914,7 +918,7 @@ int AutoCorrelate(const int *in, int *out, size_t len, size_t window, bool SaveG
             PrintAndLogEx(SUCCESS, "Possible correlation at "_YELLOW_("%4d") " samples", distance);
         }
     } else {
-        PrintAndLogEx(HINT, "No repeating pattern found, try increasing window size");
+        PrintAndLogEx(HINT, "Hint: No repeating pattern found, try increasing window size");
         // return value -1, indication to increase window size
         return -1;
     }
@@ -953,7 +957,7 @@ static int CmdAutoCorr(const char *Cmd) {
 
     if (g_GraphTraceLen == 0) {
         PrintAndLogEx(WARNING, "GraphBuffer is empty");
-        PrintAndLogEx(HINT, "Try `" _YELLOW_("lf read") "` to collect samples");
+        PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("lf read") "` to collect samples");
         return PM3_ESOFT;
     }
 
@@ -1074,7 +1078,7 @@ static int CmdUndecimate(const char *Cmd) {
     //We have memory, don't we?
     int *swap = calloc(MAX_GRAPH_TRACE_LEN, sizeof(int));
     if (swap == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     uint32_t g_index = 0, s_index = 0;
@@ -1271,7 +1275,7 @@ int FSKrawDemod(uint8_t rfLen, uint8_t invert, uint8_t fchigh, uint8_t fclow, bo
 
     uint8_t *bits = calloc(MAX_GRAPH_TRACE_LEN, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1374,7 +1378,7 @@ int PSKDemod(int clk, int invert, int maxErr, bool verbose) {
 
     uint8_t *bits = calloc(MAX_GRAPH_TRACE_LEN, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     size_t bitlen = getFromGraphBuffer(bits);
@@ -1424,7 +1428,7 @@ int NRZrawDemod(int clk, int invert, int maxErr, bool verbose) {
 
     uint8_t *bits = calloc(MAX_GRAPH_TRACE_LEN, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1807,7 +1811,7 @@ int CmdHpf(const char *Cmd) {
 
     uint8_t *bits = calloc(g_GraphTraceLen, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     size_t size = getFromGraphBuffer(bits);
@@ -1866,7 +1870,7 @@ int getSamplesEx(uint32_t start, uint32_t end, bool verbose, bool ignore_lf_conf
 
     PacketResponseNG resp;
     if (GetFromDevice(BIG_BUF, got, n, start, NULL, 0, &resp, 10000, true) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -1915,7 +1919,7 @@ int getSamplesFromBufEx(uint8_t *data, size_t sample_num, uint8_t bits_per_sampl
 
     uint8_t *bits = calloc(g_GraphTraceLen, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     size_t size = getFromGraphBuffer(bits);
@@ -1991,7 +1995,7 @@ static int CmdLoad(const char *Cmd) {
         f = fopen(path, "r");
 
     if (f == NULL) {
-        PrintAndLogEx(WARNING, "couldn't open '%s'", path);
+        PrintAndLogEx(WARNING, "couldn't open `" _YELLOW_("%s") "`", path);
         free(path);
         return PM3_EFILE;
     }
@@ -2005,8 +2009,9 @@ static int CmdLoad(const char *Cmd) {
             g_GraphBuffer[g_GraphTraceLen] = val[0] - 127;
             g_GraphTraceLen++;
 
-            if (g_GraphTraceLen >= MAX_GRAPH_TRACE_LEN)
+            if (g_GraphTraceLen >= MAX_GRAPH_TRACE_LEN) {
                 break;
+            }
         }
     } else {
         char line[80];
@@ -2025,7 +2030,7 @@ static int CmdLoad(const char *Cmd) {
     if (nofix == false) {
         uint8_t *bits = calloc(g_GraphTraceLen, sizeof(uint8_t));
         if (bits == NULL) {
-            PrintAndLogEx(FAILED, "failed to allocate memory");
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             return PM3_EMALLOC;
         }
         size_t size = getFromGraphBuffer(bits);
@@ -2172,7 +2177,7 @@ int CmdNorm(const char *Cmd) {
 
     uint8_t *bits = calloc(g_GraphTraceLen, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     size_t size = getFromGraphBuffer(bits);
@@ -2253,7 +2258,7 @@ static int CmdTimeScale(const char *Cmd) {
     void *argtable[] = {
         arg_param_begin,
         arg_dbl1(NULL,  "sr", "<float>", "sets timescale factor according to sampling rate"),
-        arg_str0("u", "unit", "<string>", "time unit to display (max 10 chars)"),
+        arg_str0("u", "unit", "<str>", "time unit to display (max 10 chars)"),
         arg_param_end
     };
     CLIExecWithReturn(ctx, Cmd, argtable, false);
@@ -2323,7 +2328,7 @@ static int CmdDirectionalThreshold(const char *Cmd) {
     // set signal properties low/high/mean/amplitude and isnoice detection
     uint8_t *bits = calloc(g_GraphTraceLen, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     size_t size = getFromGraphBuffer(bits);
@@ -2371,7 +2376,7 @@ static int CmdZerocrossings(const char *Cmd) {
 
     uint8_t *bits = calloc(g_GraphTraceLen, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     size_t size = getFromGraphBuffer(bits);
@@ -2383,8 +2388,9 @@ static int CmdZerocrossings(const char *Cmd) {
 }
 
 static bool data_verify_hex(uint8_t *d, size_t n) {
-    if (d == NULL)
+    if (d == NULL) {
         return false;
+    }
 
     for (size_t i = 0; i < n; i++) {
         if (isxdigit(d[i]) == false) {
@@ -2566,6 +2572,75 @@ static int CmdFSKToNRZ(const char *Cmd) {
     return ans;
 }
 
+/*
+// If reactivated, beware it doesn't compile on Android (DXL)
+void iceIIR_Butterworth(int *data, const size_t len) {
+
+    int *output = (int *) calloc(sizeof(int) * len, sizeof(uint8_t));
+    if (!output) return;
+
+    // clear mem
+    memset(output, 0x00, len);
+
+    size_t adjustedLen = len;
+    float fc = 0.1125f;          // center frequency
+
+    // create very simple low-pass filter to remove images (2nd-order Butterworth)
+    float complex iir_buf[3] = {0, 0, 0};
+    float b[3] = {0.003621681514929,  0.007243363029857, 0.003621681514929};
+    float a[3] = {1.000000000000000, -1.822694925196308, 0.837181651256023};
+
+    for (size_t i = 0; i < adjustedLen; ++i) {
+
+        float sample = data[i];          // input sample read from array
+        float complex x_prime  = 1.0f;   // save sample for estimating frequency
+        float complex x;
+
+        // remove DC offset and mix to complex baseband
+        x = (sample - 127.5f) * cexpf(_Complex_I * 2 * M_PI * fc * i);
+
+        // apply low-pass filter, removing spectral image (IIR using direct-form II)
+        iir_buf[2] = iir_buf[1];
+        iir_buf[1] = iir_buf[0];
+        iir_buf[0] = x - a[1] * iir_buf[1] - a[2] * iir_buf[2];
+        x          = b[0] * iir_buf[0] +
+                     b[1] * iir_buf[1] +
+                     b[2] * iir_buf[2];
+
+        // compute instantaneous frequency by looking at phase difference
+        // between adjacent samples
+        float freq = cargf(x * conjf(x_prime));
+        x_prime = x;    // retain this sample for next iteration
+
+        output[i] = (freq > 0) ? 127 : -127;
+    }
+
+    // show data
+    //memcpy(data, output, adjustedLen);
+    for (size_t j = 0; j < adjustedLen; ++j)
+        data[j] = output[j];
+
+    free(output);
+}
+*/
+
+static void iceSimple_Filter(int *data, const size_t len, uint8_t k) {
+// ref: http://www.edn.com/design/systems-design/4320010/A-simple-software-lowpass-filter-suits-embedded-system-applications
+// parameter K
+#define FILTER_SHIFT 4
+
+    int32_t filter_reg = 0;
+    int8_t shift = (k <= 8) ? k : FILTER_SHIFT;
+
+    for (size_t i = 0; i < len; ++i) {
+        // Update filter with current sample
+        filter_reg = filter_reg - (filter_reg >> shift) + data[i];
+
+        // Scale output for unity gain
+        data[i] = filter_reg >> shift;
+    }
+}
+
 static int CmdDataIIR(const char *Cmd) {
 
     CLIParserContext *ctx;
@@ -2586,9 +2661,10 @@ static int CmdDataIIR(const char *Cmd) {
 
     uint8_t *bits = calloc(g_GraphTraceLen, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
+
     size_t size = getFromGraphBuffer(bits);
     // set signal properties low/high/mean/amplitude and is_noise detection
     computeSignalProperties(bits, size);
@@ -2905,7 +2981,7 @@ static int CmdDiff(const char *Cmd) {
 
         uint8_t *d = calloc(MIFARE_4K_MAX_BYTES, sizeof(uint8_t));
         if (d == NULL) {
-            PrintAndLogEx(WARNING, "Fail, cannot allocate memory");
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             return PM3_EMALLOC;
         }
 
@@ -3349,7 +3425,7 @@ static int CmdCenterThreshold(const char *Cmd) {
     // set signal properties low/high/mean/amplitude and isnoice detection
     uint8_t *bits = calloc(g_GraphTraceLen, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     size_t size = getFromGraphBuffer(bits);
@@ -3399,7 +3475,7 @@ static int CmdEnvelope(const char *Cmd) {
 
     uint8_t *bits = calloc(g_GraphTraceLen, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     size_t size = getFromGraphBuffer(bits);

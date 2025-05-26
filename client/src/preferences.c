@@ -74,22 +74,25 @@ int preferences_load(void) {
     setDefaultPath(spTrace, "");
 
     // default save path
-    if (get_my_user_directory() != NULL) // should return path to .proxmark3 folder
+    if (get_my_user_directory() != NULL) { // should return path to .proxmark3 folder
         setDefaultPath(spDefault, get_my_user_directory());
-    else
+    } else {
         setDefaultPath(spDefault, ".");
+    }
 
     // default dump path
-    if (get_my_user_directory() != NULL) // should return path to .proxmark3 folder
+    if (get_my_user_directory() != NULL) { // should return path to .proxmark3 folder
         setDefaultPath(spDump, get_my_user_directory());
-    else
+    } else {
         setDefaultPath(spDump, ".");
+    }
 
     // default dump path
-    if (get_my_user_directory() != NULL) // should return path to .proxmark3 folder
+    if (get_my_user_directory() != NULL) {// should return path to .proxmark3 folder
         setDefaultPath(spTrace, get_my_user_directory());
-    else
+    } else {
         setDefaultPath(spTrace, ".");
+    }
 
     if (g_session.incognito) {
         PrintAndLogEx(INFO, "No preferences file will be loaded");
@@ -127,13 +130,13 @@ int preferences_save(void) {
     char *fn = prefGetFilename();
     int fn_len = strlen(fn) + 5; // .bak\0
 
-    // [FILENAME_MAX+sizeof(preferencesFilename)+10]
     char *backupFilename = (char *)calloc(fn_len, sizeof(uint8_t));
     if (backupFilename == NULL) {
-        PrintAndLogEx(ERR, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         free(fn);
         return PM3_EMALLOC;
     }
+
     snprintf(backupFilename, fn_len, "%s.bak", fn);
 
     // remove old backup file

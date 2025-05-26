@@ -16,6 +16,8 @@
 // Low frequency Hitag support
 //-----------------------------------------------------------------------------
 #include "cmdlfhitag.h"
+#include "cmdlfhitaghts.h"
+#include "cmdlfhitagu.h"
 #include <ctype.h>
 #include "cmdparser.h"  // command_t
 #include "comms.h"
@@ -31,7 +33,6 @@
 #include "pm3_cmd.h"    // return codes
 #include "hitag2/hitag2_crypto.h"
 #include "util_posix.h"             // msclock
-#include "cmdlfhitaghts.h"
 
 static int CmdHelp(const char *Cmd);
 
@@ -79,11 +80,11 @@ static size_t nbytes(size_t nbits) {
 */
 
 static int CmdLFHitagList(const char *Cmd) {
-    return CmdTraceListAlias(Cmd, "lf hitag", "hitag2");
+    return CmdTraceListAlias(Cmd, "lf hitag", "ht2");
     /*
     uint8_t *got = calloc(PM3_CMD_DATA_SIZE, sizeof(uint8_t));
-    if (!got) {
-        PrintAndLogEx(WARNING, "Cannot allocate memory for trace");
+    if (got == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -99,7 +100,7 @@ static int CmdLFHitagList(const char *Cmd) {
     if (traceLen > PM3_CMD_DATA_SIZE) {
         uint8_t *p = realloc(got, traceLen);
         if (p == NULL) {
-            PrintAndLogEx(WARNING, "Cannot allocate memory for trace");
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             free(got);
             return PM3_EMALLOC;
         }
@@ -519,7 +520,7 @@ static int ht2_check_dictionary(uint32_t key_count, uint8_t *keys,  uint8_t keyl
         SendCommandNG(CMD_LF_HITAG_READER, (uint8_t *)&packet, sizeof(packet));
         PacketResponseNG resp;
         if (WaitForResponseTimeout(CMD_LF_HITAG_READER, &resp, 4000) == false) {
-            PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+            PrintAndLogEx(WARNING, "timeout while waiting for reply");
             SendCommandNG(CMD_BREAK_LOOP, NULL, 0);
             return PM3_ETIMEOUT;
         }
@@ -588,6 +589,7 @@ void hitag2_annotate_plain(char *exp, size_t size, const uint8_t *cmd, uint8_t c
 
     char *binstr = (char *)calloc((cmdsize * 8) + 1, sizeof(uint8_t));
     if (binstr == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return;
     }
 
@@ -655,6 +657,7 @@ void annotateHitag2(char *exp, size_t size, const uint8_t *cmd, uint8_t cmdsize,
 
     char *binstr = (char *)calloc((cmdsize * 8) + 1, sizeof(uint8_t));
     if (binstr == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return;
     }
 
@@ -793,9 +796,6 @@ void annotateHitag2(char *exp, size_t size, const uint8_t *cmd, uint8_t cmdsize,
     free(binstr);
 }
 
-void annotateHitagS(char *exp, size_t size, const uint8_t *cmd, uint8_t cmdsize, bool is_response) {
-}
-
 static const char *identify_transponder_hitag2(uint32_t uid) {
 
     switch (uid) {
@@ -827,12 +827,12 @@ static bool ht2_get_uid(uint32_t *uid) {
     SendCommandNG(CMD_LF_HITAG_READER, (uint8_t *) &packet, sizeof(packet));
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_HITAG_READER, &resp, 1500) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return false;
     }
 
     if (resp.status != PM3_SUCCESS) {
-        PrintAndLogEx(DEBUG, "DEBUG: Error - failed getting UID");
+        PrintAndLogEx(DEBUG, "DEBUG: Error - failed getting Hitag 2 UID");
         return false;
     }
 
@@ -1054,7 +1054,7 @@ static int CmdLFHitagRd(const char *Cmd) {
 
     PacketResponseNG resp;
     if (WaitForResponseTimeout(pm3cmd, &resp, 2000) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         SendCommandNG(CMD_BREAK_LOOP, NULL, 0);
         return PM3_ETIMEOUT;
     }
@@ -1143,7 +1143,7 @@ static int CmdLFHitag2CheckChallenges(const char *Cmd) {
     SendCommandNG(CMD_LF_HITAG_READER, (uint8_t *)&packet, sizeof(packet));
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_HITAG_READER, &resp, 2000) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
     if (resp.status != PM3_SUCCESS) {
@@ -1305,7 +1305,7 @@ static int CmdLFHitagWriter(const char *Cmd) {
         SendCommandNG(CMD_LF_HITAG2_WRITE, (uint8_t *)&packet, sizeof(packet));
         PacketResponseNG resp;
         if (WaitForResponseTimeout(CMD_LF_HITAG2_WRITE, &resp, 4000) == false) {
-            PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+            PrintAndLogEx(WARNING, "timeout while waiting for reply");
             return PM3_ETIMEOUT;
         }
 
@@ -1528,7 +1528,7 @@ static int CmdLFHitag2Dump(const char *Cmd) {
 
         if (attempt == 0) {
             PrintAndLogEx(NORMAL, "");
-            PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+            PrintAndLogEx(WARNING, "timeout while waiting for reply");
             return PM3_ESOFT;
         }
 
@@ -1546,7 +1546,7 @@ static int CmdLFHitag2Dump(const char *Cmd) {
     SendCommandNG(CMD_LF_HITAG_READER, (uint8_t *) &packet, sizeof(packet));
 
     if (WaitForResponseTimeout(CMD_LF_HITAG_READER, &resp, 5000) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
     if (resp.status != PM3_SUCCESS) {
@@ -1680,7 +1680,12 @@ static int CmdLFHitagEload(const char *Cmd) {
     // check dump len..
     if (bytes_read == HITAG2_MAX_BYTE_SIZE || bytes_read == 4 * 64) {
 
-        lf_hitag_t *payload =  calloc(1, sizeof(lf_hitag_t) + bytes_read);
+        lf_hitag_t *payload = calloc(1, sizeof(lf_hitag_t) + bytes_read);
+        if (payload == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
+            free(dump);
+            return PM3_EMALLOC;
+        }
 
         if (use_ht1)
             payload->type = 1;
@@ -1725,7 +1730,7 @@ static int CmdLFHitagEview(const char *Cmd) {
     // reserve memory
     uint8_t *dump = calloc(bytes, sizeof(uint8_t));
     if (dump == NULL) {
-        PrintAndLogEx(WARNING, "Fail, cannot allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1809,8 +1814,8 @@ static int CmdLFHitagSniff(const char *Cmd) {
     SendCommandNG(CMD_LF_HITAG_SNIFF, NULL, 0);
     WaitForResponse(CMD_LF_HITAG_SNIFF, &resp);
     PrintAndLogEx(INFO, "Done!");
-    PrintAndLogEx(HINT, "Try `" _YELLOW_("lf hitag list")"` to view captured tracelog");
-    PrintAndLogEx(HINT, "Try `" _YELLOW_("trace save -h") "` to save tracelog for later analysing");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("lf hitag list")"` to view captured tracelog");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("trace save -h") "` to save tracelog for later analysing");
     return PM3_SUCCESS;
 }
 
@@ -1840,7 +1845,7 @@ static int CmdLFHitag2PWMDemod(const char *Cmd) {
 
     uint8_t *bits = calloc(MAX_GRAPH_TRACE_LEN, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(INFO, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -2244,7 +2249,7 @@ static int CmdLFHitag2Crack2(const char *Cmd) {
             }
             PrintAndLogEx(NORMAL, "");
             PrintAndLogEx(SUCCESS, "Nonce replay and length extension attack ( %s )", _GREEN_("ok"));
-            PrintAndLogEx(HINT, "try running `tools/hitag2crack/crack2/ht2crack2search <FILE_with_above_bytes>");
+            PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("tools/hitag2crack/crack2/ht2crack2search <FILE_with_above_bytes>") "`");
             break;
         } else {
             PrintAndLogEx(NORMAL, "");
@@ -2256,7 +2261,7 @@ static int CmdLFHitag2Crack2(const char *Cmd) {
 
     if (attempt == 0) {
         PrintAndLogEx(NORMAL, "");
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ESOFT;
     }
 
@@ -2327,9 +2332,9 @@ static uint64_t hitag2_verify_crypto_test(void) {
     // key = 0x4ad292b272f2  after each byte has its bit order reversed
     // uid = 0x96eac292      ditto
     // initvec = 0x4ea276a6  ditto
-    const uint64_t key = REV64(0x524B494D4E4FUL);
-    const uint32_t uid = REV32(0x69574349);
-    const uint32_t iv = REV32(0x72456E65);
+    const uint64_t key = REV64(UINT64_C(0x524B494D4E4F));
+    const uint32_t uid = REV32(UINT32_C(0x69574349));
+    const uint32_t iv = REV32(UINT32_C(0x72456E65));
 
     PrintAndLogEx(DEBUG, "UID... %08" PRIx32, uid);
     PrintAndLogEx(DEBUG, "IV.... %08" PRIx32, iv);
@@ -2356,9 +2361,9 @@ static uint64_t hitag2_verify_crypto_test(void) {
 static uint64_t hitag2_verify_crypto_test_round(void) {
 
     uint8_t expected[16] = { 0xD7, 0x23, 0x7F, 0xCE, 0x8C, 0xD0, 0x37, 0xA9, 0x57, 0x49, 0xC1, 0xE6, 0x48, 0x00, 0x8A, 0xB6 };
-    const uint64_t key = REV64(0x524B494D4E4FUL);
-    const uint32_t uid = REV32(0x69574349);
-    const uint32_t iv = REV32(0x72456E65);
+    const uint64_t key = REV64(UINT64_C(0x524B494D4E4F));
+    const uint32_t uid = REV32(UINT32_C(0x69574349));
+    const uint32_t iv = REV32(UINT32_C(0x72456E65));
 
     PrintAndLogEx(DEBUG, "UID... %08" PRIx32, uid);
     PrintAndLogEx(DEBUG, "IV.... %08" PRIx32, iv);
@@ -2461,6 +2466,7 @@ static command_t CommandTable[] = {
     {"help",        CmdHelp,                    AlwaysAvailable, "This help"},
     {"list",        CmdLFHitagList,             AlwaysAvailable, "List Hitag trace history"},
     {"hts",         CmdLFHitagS,                AlwaysAvailable, "{ Hitag S/8211 operations }"},
+    {"htu",         CmdLFHitagU,                AlwaysAvailable, "{ Hitag µ/8265 operations }"},
     {"-----------", CmdHelp,                    IfPm3Hitag,      "------------------------ " _CYAN_("General") " ------------------------"},
     {"info",        CmdLFHitagInfo,             IfPm3Hitag,      "Hitag 2 tag information"},
     {"reader",      CmdLFHitagReader,           IfPm3Hitag,      "Act like a Hitag 2 reader"},

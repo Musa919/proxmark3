@@ -392,13 +392,13 @@ uint8_t *get_uid_from_filename(const char *filename) {
     memset(uid, 0, 8);
 
     if (strlen(filename) < 23) {
-        PrintAndLogEx(ERR, "can't get uid from filename '%s'. Expected format is hf-14b-<uid>...", filename);
+        PrintAndLogEx(ERR, "can't get uid from filename `" _YELLOW_("%s") "` expected format is hf-14b-<uid>...", filename);
         return uid;
     }
 
     char *found = strstr(filename, "hf-14b-");
     if (found == NULL) {
-        PrintAndLogEx(ERR, "can't get uid from filename '%s'. Expected format is hf-14b-<uid>...", filename);
+        PrintAndLogEx(ERR, "can't get uid from filename `" _YELLOW_("%s") "` expected format is hf-14b-<uid>...", filename);
         return uid;
     }
 
@@ -569,7 +569,7 @@ static const char *get_st_lock_info(uint8_t model, const uint8_t *lockbytes, uin
                 default:
                     return ST_LOCK_INFO_EMPTY;
             }
-            if ((lockbytes[1] & mask) == 0) {
+            if ((lockbytes[3] & mask) == 0) {
                 return _RED_("1");
             }
             return ST_LOCK_INFO_EMPTY;
@@ -578,7 +578,7 @@ static const char *get_st_lock_info(uint8_t model, const uint8_t *lockbytes, uin
         case 0x6:   // SRI512
         case 0xC: { // SRT512
             //need data[2] and data[3]
-            uint8_t b = 1;
+            uint8_t b = 2;
             switch (blk) {
                 case 0:
                     mask = 0x01;
@@ -606,35 +606,35 @@ static const char *get_st_lock_info(uint8_t model, const uint8_t *lockbytes, uin
                     break;
                 case 8:
                     mask = 0x01;
-                    b = 0;
+                    b = 3;
                     break;
                 case 9:
                     mask = 0x02;
-                    b = 0;
+                    b = 3;
                     break;
                 case 10:
                     mask = 0x04;
-                    b = 0;
+                    b = 3;
                     break;
                 case 11:
                     mask = 0x08;
-                    b = 0;
+                    b = 3;
                     break;
                 case 12:
                     mask = 0x10;
-                    b = 0;
+                    b = 3;
                     break;
                 case 13:
                     mask = 0x20;
-                    b = 0;
+                    b = 3;
                     break;
                 case 14:
                     mask = 0x40;
-                    b = 0;
+                    b = 3;
                     break;
                 case 15:
                     mask = 0x80;
-                    b = 0;
+                    b = 3;
                     break;
             }
             if ((lockbytes[b] & mask) == 0) {
@@ -679,7 +679,7 @@ static const char *get_st_lock_info(uint8_t model, const uint8_t *lockbytes, uin
                     break;
             }
             // iceman:  this is opposite!  need sample to test with.
-            if ((lockbytes[0] & mask)) {
+            if ((lockbytes[2] & mask)) {
                 return _RED_("1");
             }
             return ST_LOCK_INFO_EMPTY;
@@ -925,8 +925,8 @@ static int CmdHF14BSniff(const char *Cmd) {
     clearCommandBuffer();
     SendCommandNG(CMD_HF_ISO14443B_SNIFF, NULL, 0);
     WaitForResponse(CMD_HF_ISO14443B_SNIFF, &resp);
-    PrintAndLogEx(HINT, "Try `" _YELLOW_("hf 14b list") "` to view captured tracelog");
-    PrintAndLogEx(HINT, "Try `" _YELLOW_("trace save -h") "` to save tracelog for later analysing");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf 14b list") "` to view captured tracelog");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("trace save -h") "` to save tracelog for later analysing");
     return PM3_SUCCESS;
 }
 
@@ -1045,7 +1045,7 @@ static int CmdHF14BRaw(const char *Cmd) {
 
     iso14b_raw_cmd_t *packet = (iso14b_raw_cmd_t *)calloc(1, sizeof(iso14b_raw_cmd_t) + datalen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1250,7 +1250,7 @@ static int write_sr_block(uint8_t blockno, uint8_t datalen, uint8_t *data) {
     uint8_t psize = sizeof(iso14b_raw_cmd_t) + datalen + 2;
     iso14b_raw_cmd_t *packet = (iso14b_raw_cmd_t *)calloc(1, psize);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1433,7 +1433,7 @@ bool HF14B_picopass_reader(bool verbose, bool info) {
 
             picopass_hdr_t *card = calloc(1, sizeof(picopass_hdr_t));
             if (card == NULL) {
-                PrintAndLogEx(FAILED, "failed to allocate memory");
+                PrintAndLogEx(WARNING, "Failed to allocate memory");
                 return false;
             }
             memcpy(card, resp.data.asBytes, sizeof(picopass_hdr_t));
@@ -1465,7 +1465,7 @@ static bool HF14B_other_reader(bool verbose) {
 
     iso14b_raw_cmd_t *packet = (iso14b_raw_cmd_t *)calloc(1, sizeof(iso14b_raw_cmd_t) + 4);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return false;
     }
     packet->flags = (ISO14B_CONNECT | ISO14B_SELECT_STD | ISO14B_RAW | ISO14B_APPEND_CRC);
@@ -1795,7 +1795,7 @@ static int CmdHF14BDump(const char *Cmd) {
 
         iso14b_raw_cmd_t *packet = (iso14b_raw_cmd_t *)calloc(1, sizeof(iso14b_raw_cmd_t) + 2);
         if (packet == NULL) {
-            PrintAndLogEx(FAILED, "failed to allocate memory");
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             return PM3_EMALLOC;
         }
         packet->flags = (ISO14B_CONNECT | ISO14B_SELECT_SR);
@@ -2235,7 +2235,7 @@ static int handle_14b_apdu(bool chainingin, uint8_t *datain, int datainlen,
 
     iso14b_raw_cmd_t *packet = (iso14b_raw_cmd_t *)calloc(1, sizeof(iso14b_raw_cmd_t) + datainlen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "APDU: failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     packet->flags = (ISO14B_APDU);
@@ -2969,7 +2969,7 @@ static int CmdHF14BSetUID(const char *Cmd) {
 
     if (memcmp(card->uid, uid, uidlen) == 0) {
         PrintAndLogEx(SUCCESS, "Setting new UID ( " _GREEN_("ok") " )");
-        PrintAndLogEx(HINT, "try `" _YELLOW_("hf 14b reader") "` to verify");
+        PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf 14b reader") "` to verify");
         PrintAndLogEx(NORMAL, "");
         return PM3_SUCCESS;;
     }
@@ -3029,7 +3029,9 @@ int infoHF14B(bool verbose, bool do_aid_search) {
 
     // try unknown 14b read commands (to be identified later)
     //   could be read of calypso, CEPAS, moneo, or pico pass.
-    if (verbose) PrintAndLogEx(FAILED, "no 14443-B tag found");
+    if (verbose) {
+        PrintAndLogEx(FAILED, "no 14443-B tag found");
+    }
     return PM3_EOPABORTED;
 }
 

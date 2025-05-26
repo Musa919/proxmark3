@@ -264,7 +264,7 @@ static const char *felica_model_name(uint8_t rom_type, uint8_t ic_type) {
  */
 static bool waitCmdFelica(bool iSelect, PacketResponseNG *resp, bool verbose) {
     if (WaitForResponseTimeout(CMD_ACK, resp, 2000) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return false;
     }
 
@@ -1816,7 +1816,7 @@ static int CmdHFFelicaSniff(const char *Cmd) {
         }
     }
 
-    PrintAndLogEx(HINT, "try `" _YELLOW_("hf felica list") "` to view");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf felica list") "` to view");
     PrintAndLogEx(INFO, "Done!");
     return PM3_SUCCESS;
 }
@@ -2068,7 +2068,7 @@ static int CmdHFFelicaDumpLite(const char *Cmd) {
             return PM3_EOPABORTED;
         }
         if (timeout > 10) {
-            PrintAndLogEx(WARNING, "\ntimeout while waiting for reply.");
+            PrintAndLogEx(WARNING, "\ntimeout while waiting for reply");
             DropField();
             return PM3_ETIMEOUT;
         }
@@ -2089,11 +2089,11 @@ static int CmdHFFelicaDumpLite(const char *Cmd) {
 
     uint8_t *trace = calloc(tracelen, sizeof(uint8_t));
     if (trace == NULL) {
-        PrintAndLogEx(WARNING, "failed to allocate memory ");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
-    if (!GetFromDevice(BIG_BUF, trace, tracelen, 0, NULL, 0, NULL, 2500, false)) {
+    if (GetFromDevice(BIG_BUF, trace, tracelen, 0, NULL, 0, NULL, 2500, false) == false) {
         PrintAndLogEx(WARNING, "command execution time out");
         free(trace);
         return PM3_ETIMEOUT;

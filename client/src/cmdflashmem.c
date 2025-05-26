@@ -247,7 +247,7 @@ static int CmdFlashMemLoad(const char *Cmd) {
     uint8_t *data = calloc(FLASH_MEM_MAX_SIZE_P(spi_flash_pages), sizeof(uint8_t));
 
     switch (d) {
-        case DICTIONARY_MIFARE:
+        case DICTIONARY_MIFARE: {
             keylen = MF_KEY_LENGTH;
             res = loadFileDICTIONARY(filename, data, &datalen, keylen, &keycount);
             if (res || !keycount) {
@@ -261,7 +261,8 @@ static int CmdFlashMemLoad(const char *Cmd) {
             }
             strcpy(spiffsDest, MF_KEYS_FILE);
             break;
-        case DICTIONARY_T55XX:
+        }
+        case DICTIONARY_T55XX: {
             keylen = T55XX_KEY_LENGTH;
             res = loadFileDICTIONARY(filename, data, &datalen, keylen, &keycount);
             if (res || !keycount) {
@@ -275,7 +276,8 @@ static int CmdFlashMemLoad(const char *Cmd) {
             }
             strcpy(spiffsDest, T55XX_KEYS_FILE);
             break;
-        case DICTIONARY_ICLASS:
+        }
+        case DICTIONARY_ICLASS: {
             keylen = ICLASS_KEY_LENGTH;
             res = loadFileDICTIONARY(filename, data, &datalen, keylen, &keycount);
             if (res || !keycount) {
@@ -289,7 +291,8 @@ static int CmdFlashMemLoad(const char *Cmd) {
             }
             strcpy(spiffsDest, ICLASS_KEYS_FILE);
             break;
-        case DICTIONARY_NONE:
+        }
+        case DICTIONARY_NONE: {
             res = loadFile_safe(filename, ".bin", (void **)&data, &datalen);
             if (res != PM3_SUCCESS) {
                 free(data);
@@ -302,11 +305,13 @@ static int CmdFlashMemLoad(const char *Cmd) {
                 return PM3_EOVFLOW;
             }
             break;
+        }
     }
 
     // ICEMAN: not needed when we transite to loadxxxx_safe methods
     uint8_t *newdata = realloc(data, datalen);
     if (newdata == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         free(data);
         return PM3_EMALLOC;
     } else {
@@ -349,7 +354,7 @@ static int CmdFlashMemLoad(const char *Cmd) {
 
             PacketResponseNG resp;
             if (WaitForResponseTimeout(CMD_FLASHMEM_WRITE, &resp, 2000) == false) {
-                PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+                PrintAndLogEx(WARNING, "timeout while waiting for reply");
                 g_conn.block_after_ACK = false;
                 free(data);
                 return PM3_ETIMEOUT;
@@ -409,13 +414,13 @@ static int CmdFlashMemDump(const char *Cmd) {
     CLIParserFree(ctx);
 
     uint8_t *dump = calloc(len, sizeof(uint8_t));
-    if (!dump) {
-        PrintAndLogEx(ERR, "error, cannot allocate memory ");
+    if (dump == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
     PrintAndLogEx(INFO, "downloading "_YELLOW_("%u")" bytes from flash memory", len);
-    if (!GetFromDevice(FLASH_MEM, dump, len, offset, NULL, 0, NULL, -1, true)) {
+    if (GetFromDevice(FLASH_MEM, dump, len, offset, NULL, 0, NULL, -1, true) == false) {
         PrintAndLogEx(FAILED, "ERROR; downloading from flash memory");
         free(dump);
         return PM3_EFLASH;
@@ -473,7 +478,7 @@ static int CmdFlashMemWipe(const char *Cmd) {
     SendCommandMIX(CMD_FLASHMEM_WIPE, page, initialwipe, 0, NULL, 0);
     PacketResponseNG resp;
     if (!WaitForResponseTimeout(CMD_ACK, &resp, 10000)) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -562,7 +567,7 @@ static int CmdFlashMemInfo(const char *Cmd) {
 
         mbedtls_rsa_context *rsa = (mbedtls_rsa_context *)pkctx.pk_ctx;
         if (rsa == NULL) {
-            PrintAndLogEx(FAILED, "failed to allocate rsa context memory");
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             return PM3_EMALLOC;
         }
         got_private = true;
@@ -615,6 +620,10 @@ static int CmdFlashMemInfo(const char *Cmd) {
     } else {
 
         rsa = (mbedtls_rsa_context *)calloc(1, sizeof(mbedtls_rsa_context));
+        if (rsa == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
+            return PM3_EMALLOC;
+        }
         mbedtls_rsa_init(rsa, MBEDTLS_RSA_PKCS_V15, 0);
         rsa->len = RRG_RSA_KEY_LEN;
 

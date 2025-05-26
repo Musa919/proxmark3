@@ -261,6 +261,7 @@ Check column "offline" for their availability.
 |`hf 15 slixeasenable    `|N       |`Enable EAS mode on SLIX ISO-15693 tag`
 |`hf 15 slixprivacydisable`|N       |`Disable privacy mode on SLIX ISO-15693 tag`
 |`hf 15 slixprivacyenable`|N       |`Enable privacy mode on SLIX ISO-15693 tag`
+|`hf 15 slixprotectpage  `|N       |`Protect pages on SLIX ISO-15693 tag`
 |`hf 15 passprotectafi   `|N       |`Password protect AFI - Cannot be undone`
 |`hf 15 passprotecteas   `|N       |`Password protect EAS - Cannot be undone`
 |`hf 15 findafi          `|N       |`Brute force AFI of an ISO-15693 tag`
@@ -403,7 +404,7 @@ Check column "offline" for their availability.
 |`hf iclass view         `|Y       |`Display content from tag dump file`
 |`hf iclass wrbl         `|N       |`Write Picopass / iCLASS block`
 |`hf iclass creditepurse `|N       |`Credit epurse value`
-|`hf iclass trbl         `|N       |`Performs tearoff attack on iClass block`
+|`hf iclass tear         `|N       |`Performs tearoff attack on iClass block`
 |`hf iclass chk          `|N       |`Check keys`
 |`hf iclass loclass      `|Y       |`Use loclass to perform bruteforce reader attack`
 |`hf iclass lookup       `|Y       |`Uses authentication trace to check for key in dictionary file`
@@ -616,6 +617,7 @@ Check column "offline" for their availability.
 |`hf mfu otptear         `|N       |`Tear-off test on OTP bits`
 |`hf mfu cauth           `|N       |`Ultralight-C - Authentication`
 |`hf mfu setpwd          `|N       |`Ultralight-C - Set 3DES key`
+|`hf mfu aesauth         `|N       |`Ultralight-AES - Authentication`
 |`hf mfu dump            `|N       |`Dump MIFARE Ultralight family tag to binary file`
 |`hf mfu incr            `|N       |`Increments Ev1/NTAG counter`
 |`hf mfu info            `|N       |`Tag information`
@@ -784,7 +786,7 @@ Check column "offline" for their availability.
 
 ### hf vas
 
- { Apple Value Added Service           }
+ { Apple Value Added Service...        }
 
 |command                  |offline |description
 |-------                  |------- |-----------
@@ -1093,6 +1095,21 @@ Check column "offline" for their availability.
 |`lf hitag hts restore   `|N       |`Restore Hitag S memory from dump file`
 |`lf hitag hts wrbl      `|N       |`Write Hitag S page`
 |`lf hitag hts sim       `|N       |`Simulate Hitag S transponder`
+
+
+### lf hitag htu
+
+ { Hitag µ/8265 operations }
+
+|command                  |offline |description
+|-------                  |------- |-----------
+|`lf hitag htu help      `|Y       |`This help`
+|`lf hitag htu list      `|Y       |`List Hitag µ trace history`
+|`lf hitag htu reader    `|N       |`Act like a Hitag µ reader`
+|`lf hitag htu rdbl      `|N       |`Read Hitag µ block`
+|`lf hitag htu dump      `|N       |`Dump Hitag µ blocks to a file`
+|`lf hitag htu wrbl      `|N       |`Write Hitag µ block`
+|`lf hitag htu sim       `|N       |`Simulate Hitag µ transponder`
 
 
 ### lf idteck

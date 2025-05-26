@@ -98,11 +98,6 @@
 }
 #endif
 
-typedef struct {
-    uint8_t lock;
-    uint8_t block[8];
-} t15memory_t;
-
 // structure and database for uid -> tagtype lookups
 typedef struct {
     uint64_t uid;
@@ -284,22 +279,22 @@ static int CmdHF15Help(const char *Cmd);
 static int nxp_15693_print_signature(uint8_t *uid, uint8_t *signature) {
 
     int reason = 0;
-    int index = originality_check_verify(uid, 8, signature, 32, PK_MFC);
+    int index = originality_check_verify(uid, 8, signature, 32, PK_15);
     if (index >= 0) {
         reason = 1;
     } else {
         // try with sha256
-        index = originality_check_verify_ex(uid, 8, signature, 32, PK_MFC, false, true);
+        index = originality_check_verify_ex(uid, 8, signature, 32, PK_15, false, true);
         if (index >= 0) {
             reason = 2;
         } else {
             // try with reversed uid / signature
-            index = originality_check_verify_ex(uid, 8, signature, 32, PK_MFC, true, false);
+            index = originality_check_verify_ex(uid, 8, signature, 32, PK_15, true, false);
             if (index >= 0) {
                 reason = 3;
             } else {
                 // try with sha256 and reversed uid / signature
-                index = originality_check_verify_ex(uid, 8, signature, 32, PK_MFC, true, true);
+                index = originality_check_verify_ex(uid, 8, signature, 32, PK_15, true, true);
                 if (index >= 0) {
                     reason = 3;
                 }
@@ -431,7 +426,7 @@ static int getUID(bool verbose, bool loop, uint8_t *buf) {
     uint8_t approxlen = 5;
     iso15_raw_cmd_t *packet = (iso15_raw_cmd_t *)calloc(1, sizeof(iso15_raw_cmd_t) + approxlen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -534,7 +529,7 @@ static int CmdHF15Demod(const char *Cmd) {
 
     if (g_GraphTraceLen < 1000) {
         PrintAndLogEx(FAILED, "Too few samples in GraphBuffer");
-        PrintAndLogEx(HINT, "Run " _YELLOW_("`hf 15 samples`") " to collect and download data");
+        PrintAndLogEx(HINT, "Hint: Run `" _YELLOW_("hf 15 samples") "` to collect and download data");
         return PM3_ESOFT;
     }
 
@@ -659,7 +654,7 @@ static int CmdHF15Samples(const char *Cmd) {
 
     getSamples(0, true);
 
-    PrintAndLogEx(HINT, "Try `" _YELLOW_("hf 15 demod") "` to decode signal");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf 15 demod") "` to decode signal");
     PrintAndLogEx(INFO, "Done!");
     return PM3_SUCCESS;
 }
@@ -673,7 +668,7 @@ static int NxpTestEAS(const uint8_t *uid) {
     uint8_t approxlen = 3 + HF15_UID_LENGTH + 2;
     iso15_raw_cmd_t *packet = (iso15_raw_cmd_t *)calloc(1, sizeof(iso15_raw_cmd_t) + approxlen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -728,7 +723,7 @@ static int NxpCheckSig(uint8_t *uid) {
     uint8_t approxlen = 3 + HF15_UID_LENGTH + 2;
     iso15_raw_cmd_t *packet = (iso15_raw_cmd_t *)calloc(1, sizeof(iso15_raw_cmd_t) + approxlen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -782,7 +777,7 @@ static int NxpSysInfo(uint8_t *uid) {
     uint8_t approxlen = 13;
     iso15_raw_cmd_t *packet = (iso15_raw_cmd_t *)calloc(1, sizeof(iso15_raw_cmd_t) + approxlen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -825,6 +820,8 @@ static int NxpSysInfo(uint8_t *uid) {
     PrintAndLogEx(INFO, "    Raw............ %s", sprint_hex(d, 8));
     PrintAndLogEx(INFO, "");
     PrintAndLogEx(INFO, _CYAN_(" Password protection configuration"));
+
+    PrintAndLogEx(INFO, "    Page prot. ptr. " _YELLOW_("%d"), d[1]);
 
     PrintAndLogEx(INFO, "    Page L read.... %s"
                   , (d[2] & 0x01) ?  _RED_("password") : _GREEN_("no password")
@@ -898,7 +895,7 @@ static int StCheckSig(uint8_t *uid) {
     uint8_t approxlen = 2 + 8 + 1 + 2;
     iso15_raw_cmd_t *packet = (iso15_raw_cmd_t *)calloc(1, sizeof(iso15_raw_cmd_t) + approxlen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1001,7 +998,7 @@ static int CmdHF15Info(const char *Cmd) {
 
     iso15_raw_cmd_t *packet = (iso15_raw_cmd_t *)calloc(1, sizeof(iso15_raw_cmd_t) + approxlen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1146,8 +1143,8 @@ static int CmdHF15Sniff(const char *Cmd) {
 
     WaitForResponse(CMD_HF_ISO15693_SNIFF, &resp);
 
-    PrintAndLogEx(HINT, "Try `" _YELLOW_("hf 15 list") "` to view captured tracelog");
-    PrintAndLogEx(HINT, "Try `" _YELLOW_("trace save -h") "` to save tracelog for later analysing");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf 15 list") "` to view captured tracelog");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("trace save -h") "` to save tracelog for later analysing");
     PrintAndLogEx(INFO, "Done!");
     return PM3_SUCCESS;
 }
@@ -1180,7 +1177,7 @@ static void hf15EmlClear(void) {
     SendCommandNG(CMD_HF_ISO15693_EML_CLEAR, NULL, 0);
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_HF_ISO15693_EML_CLEAR, &resp, 2500) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
     }
 }
 
@@ -1197,6 +1194,10 @@ static int hf15EmlSetMem(const uint8_t *data, uint16_t count, size_t offset) {
 
     size_t paylen = sizeof(struct p) + count;
     struct p *payload = calloc(1, paylen);
+    if (payload == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return PM3_EMALLOC;
+    }
 
     payload->offset = offset;
     payload->count = count;
@@ -1291,7 +1292,7 @@ static int CmdHF15ELoad(const char *Cmd) {
     PrintAndLogEx(NORMAL, "");
     PrintAndLogEx(SUCCESS, "uploaded " _YELLOW_("%zu") " bytes to emulator memory", offset);
 
-    PrintAndLogEx(HINT, "You are ready to simulate. See " _YELLOW_("`hf 15 sim -h`"));
+    PrintAndLogEx(HINT, "Hint: You are ready to simulate. See `" _YELLOW_("hf 15 sim -h") "`");
     PrintAndLogEx(INFO, "Done!");
     return PM3_SUCCESS;
 }
@@ -1319,7 +1320,7 @@ static int CmdHF15ESave(const char *Cmd) {
     // reserve memory
     uint8_t *dump = calloc(bytes, sizeof(uint8_t));
     if (dump == NULL) {
-        PrintAndLogEx(WARNING, "Fail, cannot allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1450,7 +1451,7 @@ static int CmdHF15EView(const char *Cmd) {
     // reserve memory
     uint8_t *dump = calloc(bytes, sizeof(uint8_t));
     if (dump == NULL) {
-        PrintAndLogEx(WARNING, "Fail, cannot allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1725,7 +1726,7 @@ static int CmdHF15WriteDsfid(const char *Cmd) {
     uint8_t approxlen = 2 + 8 + 1 + 2;
     iso15_raw_cmd_t *packet = (iso15_raw_cmd_t *)calloc(1, sizeof(iso15_raw_cmd_t) + approxlen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1845,14 +1846,14 @@ static int CmdHF15Dump(const char *Cmd) {
     uint8_t approxlen = 2 + 8 + 1 + 2;
     iso15_raw_cmd_t *packet = (iso15_raw_cmd_t *)calloc(1, sizeof(iso15_raw_cmd_t) + approxlen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
     // struct of ISO15693 tag memory (new file format)
     iso15_tag_t *tag = (iso15_tag_t *)calloc(1, sizeof(iso15_tag_t));
     if (tag == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         free(packet);
         return PM3_EMALLOC;
     };
@@ -2097,7 +2098,7 @@ static int CmdHF15Raw(const char *Cmd) {
 
     iso15_raw_cmd_t *packet = (iso15_raw_cmd_t *)calloc(1, sizeof(iso15_raw_cmd_t) + datalen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -2221,7 +2222,7 @@ static int CmdHF15Readmulti(const char *Cmd) {
     uint8_t approxlen = 2 + 8 + 2 + 2;
     iso15_raw_cmd_t *packet = (iso15_raw_cmd_t *)calloc(1, sizeof(iso15_raw_cmd_t) + approxlen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -2374,7 +2375,7 @@ static int CmdHF15Readblock(const char *Cmd) {
     uint8_t approxlen = 2 + 8 + 1 + 2;
     iso15_raw_cmd_t *packet = (iso15_raw_cmd_t *)calloc(1, sizeof(iso15_raw_cmd_t) + approxlen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -2479,7 +2480,7 @@ static int hf_15_write_blk(const uint8_t *pm3flags, uint16_t flags, const uint8_
     uint8_t approxlen = 21;
     iso15_raw_cmd_t *packet = (iso15_raw_cmd_t *)calloc(1, sizeof(iso15_raw_cmd_t) + approxlen);
     if (packet == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -2731,6 +2732,11 @@ static int CmdHF15Restore(const char *Cmd) {
     size_t bytes = 0;
     uint16_t i = 0;
     uint8_t *data = calloc(tag->bytesPerPage, sizeof(uint8_t));
+    if (data == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        free(tag);
+        return PM3_EMALLOC;
+    }
     uint32_t tried;
     while (bytes < (tag->pagesCount * tag->bytesPerPage)) {
 
@@ -2776,7 +2782,7 @@ static int CmdHF15Restore(const char *Cmd) {
     DropField();
 
     PrintAndLogEx(NORMAL, "");
-    PrintAndLogEx(HINT, "try `" _YELLOW_("hf 15 dump --ns") "` to verify");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf 15 dump --ns") "` to verify");
     PrintAndLogEx(INFO, "Done!");
     return PM3_SUCCESS;
 }
@@ -3203,6 +3209,101 @@ static int CmdHF15SlixWritePassword(const char *Cmd) {
     return resp.status;
 }
 
+static int CmdHF15SlixProtectPage(const char *Cmd) {
+    CLIParserContext *ctx;
+    CLIParserInit(&ctx, "hf 15 slixprotectpage",
+                  "Defines protection pointer address of user mem and access cond. for pages",
+                  "hf 15 slixprotectpage -w deadbeef -p 3 -h 3");
+
+    void *argtable[] = {
+        arg_param_begin,
+        arg_str0("r", "readpw", "<hex>", "read password, 4 hex bytes"),
+        arg_str0("w", "writepw", "<hex>", "write password, 4 hex bytes"),
+        arg_int0("p", "ptr", "<dec>", "protection pointer page (0-78), if 0 entire user mem"),
+        arg_int1("l", "lo", "<dec>", "page protection flags of lo page (0-None, 1-ReadPR, 2-WritePR)"),
+        arg_int1("i", "hi", "<dec>", "page protection flags of hi page (0-None, 1-ReadPR, 2-WritePR)"),
+        arg_param_end
+    };
+
+    CLIExecWithReturn(ctx, Cmd, argtable, false);
+
+    struct p {
+        uint8_t read_pwd[4];
+        uint8_t write_pwd[4];
+        uint8_t divide_ptr;
+        uint8_t prot_status;
+    } PACKED payload = {0};
+    int pwdlen = 0;
+
+    CLIGetHexWithReturn(ctx, 1, payload.read_pwd, &pwdlen);
+
+    if (pwdlen > 0 && pwdlen != 4) {
+        PrintAndLogEx(WARNING, "read password must be 4 hex bytes if provided");
+        CLIParserFree(ctx);
+        return PM3_ESOFT;
+    }
+
+    CLIGetHexWithReturn(ctx, 2, payload.write_pwd, &pwdlen);
+
+    if (pwdlen > 0 && pwdlen != 4) {
+        PrintAndLogEx(WARNING, "write password must be 4 hex bytes if provided");
+        CLIParserFree(ctx);
+        return PM3_ESOFT;
+    }
+
+    payload.divide_ptr = (uint8_t)arg_get_int_def(ctx, 3, 0);
+    if (payload.divide_ptr > 78) {
+        PrintAndLogEx(WARNING, "protection pointer page is invalid (is %d but should be <=78).", payload.divide_ptr);
+        CLIParserFree(ctx);
+        return PM3_ESOFT;
+    }
+
+    pwdlen = arg_get_int_def(ctx, 4, 0);
+    if (pwdlen > 3) {
+        PrintAndLogEx(WARNING, "page protection flags must be between 0 and 3");
+        CLIParserFree(ctx);
+        return PM3_ESOFT;
+    }
+    payload.prot_status = (uint8_t)pwdlen;
+
+    pwdlen = arg_get_int_def(ctx, 5, 0);
+    if (pwdlen > 3) {
+        PrintAndLogEx(WARNING, "page protection flags must be between 0 and 3");
+        CLIParserFree(ctx);
+        return PM3_ESOFT;
+    }
+    payload.prot_status |= (uint8_t)pwdlen << 4;
+
+    PrintAndLogEx(INFO, "Trying to set page protection pointer to " _YELLOW_("%d"), payload.divide_ptr);
+    PrintAndLogEx(INFO, _YELLOW_("LO") " page access %s%s", (payload.prot_status & 0x01) ? _RED_("R") : _GREEN_("r"), (payload.prot_status & 0x02) ? _RED_("W") : _GREEN_("w"));
+    PrintAndLogEx(INFO, _YELLOW_("HI") " page access %s%s", (payload.prot_status & 0x10) ? _RED_("R") : _GREEN_("r"), (payload.prot_status & 0x20) ? _RED_("W") : _GREEN_("w"));
+
+    PacketResponseNG resp;
+    clearCommandBuffer();
+    SendCommandNG(CMD_HF_ISO15693_SLIX_PROTECT_PAGE, (uint8_t *)&payload, sizeof(payload));
+    if (WaitForResponseTimeout(CMD_HF_ISO15693_SLIX_PROTECT_PAGE, &resp, 2000) == false) {
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
+        DropField();
+        return PM3_ESOFT;
+    }
+
+    switch (resp.status) {
+        case PM3_ETIMEOUT: {
+            PrintAndLogEx(WARNING, "no tag found");
+            break;
+        }
+        case PM3_EWRONGANSWER: {
+            PrintAndLogEx(WARNING, "Protection flags were not accepted, locked? ( " _RED_("fail") " )");
+            break;
+        }
+        case PM3_SUCCESS: {
+            PrintAndLogEx(SUCCESS, "Page protection written ( " _GREEN_("ok") " ) ");
+            break;
+        }
+    }
+    return resp.status;
+}
+
 static int CmdHF15AFIPassProtect(const char *Cmd) {
 
     CLIParserContext *ctx;
@@ -3513,6 +3614,7 @@ static command_t CommandTable[] = {
     {"slixeasenable",       CmdHF15SlixEASEnable,     IfPm3Iso15693,   "Enable EAS mode on SLIX ISO-15693 tag"},
     {"slixprivacydisable",  CmdHF15SlixDisable,       IfPm3Iso15693,   "Disable privacy mode on SLIX ISO-15693 tag"},
     {"slixprivacyenable",   CmdHF15SlixEnable,        IfPm3Iso15693,   "Enable privacy mode on SLIX ISO-15693 tag"},
+    {"slixprotectpage",     CmdHF15SlixProtectPage,   IfPm3Iso15693,   "Protect pages on SLIX ISO-15693 tag"},
     {"passprotectafi",      CmdHF15AFIPassProtect,    IfPm3Iso15693,   "Password protect AFI - Cannot be undone"},
     {"passprotecteas",      CmdHF15EASPassProtect,    IfPm3Iso15693,   "Password protect EAS - Cannot be undone"},
     {"-----------",         CmdHF15Help,              IfPm3Iso15693,  "-------------------------- " _CYAN_("afi") " ------------------------"},

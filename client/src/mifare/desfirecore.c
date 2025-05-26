@@ -554,6 +554,7 @@ static int DesfireExchangeNative(bool activate_field, DesfireContext_t *ctx, uin
 
     uint8_t *buf  = calloc(DESFIRE_BUFFER_SIZE, 1);
     if (buf == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -680,6 +681,7 @@ static int DesfireExchangeISONative(bool activate_field, DesfireContext_t *ctx, 
     uint16_t sw = 0;
     uint8_t *buf = calloc(DESFIRE_BUFFER_SIZE, 1);
     if (buf == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -802,6 +804,7 @@ static int DesfireExchangeISONative(bool activate_field, DesfireContext_t *ctx, 
 static int DesfireExchangeISO(bool activate_field, DesfireContext_t *ctx, sAPDU_t apdu, uint16_t le, uint8_t *resp, size_t *resplen, uint16_t *sw) {
     uint8_t *data  = calloc(DESFIRE_BUFFER_SIZE, 1);
     if (data == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -861,6 +864,7 @@ int DesfireExchangeEx(bool activate_field, DesfireContext_t *ctx, uint8_t cmd, u
 
     uint8_t *databuf = calloc(DESFIRE_BUFFER_SIZE, 1);
     if (databuf == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -908,6 +912,7 @@ int DesfireExchange(DesfireContext_t *ctx, uint8_t cmd, uint8_t *data, size_t da
 
 int DesfireSelectAID(DesfireContext_t *ctx, uint8_t *aid1, uint8_t *aid2) {
     if (aid1 == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EINVARG;
     }
 
@@ -1877,11 +1882,7 @@ int DesfireFillAppList(DesfireContext_t *dctx, PICCInfo_t *PICCInfo, AppListS ap
 
 void DesfirePrintPICCInfo(DesfireContext_t *dctx, PICCInfo_t *PICCInfo) {
     PrintAndLogEx(SUCCESS, "------------------------------------ " _CYAN_("PICC level") " -------------------------------------");
-    if (PICCInfo->freemem == 0xffffffff) {
-        PrintAndLogEx(SUCCESS, "# applications....... " _YELLOW_("%zu"), PICCInfo->appCount);
-    } else {
-        PrintAndLogEx(SUCCESS, "# applications....... " _YELLOW_("%zu"), PICCInfo->appCount);
-    }
+    PrintAndLogEx(SUCCESS, "# applications....... " _YELLOW_("%zu"), PICCInfo->appCount);
     PrintAndLogEx(SUCCESS, "");
 
     if (PICCInfo->authCmdCheck.checked) {
@@ -1916,15 +1917,14 @@ void DesfirePrintAppList(DesfireContext_t *dctx, PICCInfo_t *PICCInfo, AppListS 
         }
 
         if (appList[i].numberOfKeys > 0) {
+
             PrintKeySettings(appList[i].keySettings, appList[i].numKeysRaw, true, true);
 
-            if (appList[i].numberOfKeys > 0) {
-                PrintAndLogEx(SUCCESS, "Key versions [0..%d] " NOLF, appList[i].numberOfKeys - 1);
-                for (uint8_t keyn = 0; keyn < appList[i].numberOfKeys; keyn++) {
-                    PrintAndLogEx(NORMAL, "%s %02x" NOLF, (keyn == 0) ? "" : ",",  appList[i].keyVersions[keyn]);
-                }
-                PrintAndLogEx(NORMAL, "\n");
+            PrintAndLogEx(SUCCESS, "Key versions [0..%d] " NOLF, appList[i].numberOfKeys - 1);
+            for (uint8_t keyn = 0; keyn < appList[i].numberOfKeys; keyn++) {
+                PrintAndLogEx(NORMAL, "%s %02x" NOLF, (keyn == 0) ? "" : ",",  appList[i].keyVersions[keyn]);
             }
+            PrintAndLogEx(NORMAL, "\n");
 
             if (appList[i].filesReaded) {
                 PrintAndLogEx(SUCCESS, "Application have " _GREEN_("%zu") " files", appList[i].filesCount);
@@ -1935,10 +1935,11 @@ void DesfirePrintAppList(DesfireContext_t *dctx, PICCInfo_t *PICCInfo, AppListS 
                         PrintAndLogEx(SUCCESS, "--------------------------------- " _CYAN_("File %02x") " ----------------------------------", appList[i].fileList[fnum].fileNum);
                         PrintAndLogEx(SUCCESS, "File ID         : " _GREEN_("%02x"), appList[i].fileList[fnum].fileNum);
                         if (appList[i].isoPresent) {
-                            if (appList[i].fileList[fnum].fileISONum != 0)
+                            if (appList[i].fileList[fnum].fileISONum != 0) {
                                 PrintAndLogEx(SUCCESS, "File ISO ID     : %04x", appList[i].fileList[fnum].fileISONum);
-                            else
+                            } else {
                                 PrintAndLogEx(SUCCESS, "File ISO ID     : " _YELLOW_("n/a"));
+                            }
                         }
                         DesfirePrintFileSettingsExtended(&appList[i].fileList[fnum].fileSettings);
                     }
@@ -1958,6 +1959,7 @@ static int DesfireCommandEx(DesfireContext_t *dctx, uint8_t cmd, uint8_t *data, 
 
     uint8_t *xresp  = calloc(DESFIRE_BUFFER_SIZE, 1);
     if (xresp == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -2272,10 +2274,10 @@ int DesfireUpdateRecord(DesfireContext_t *dctx, uint8_t fnum, uint32_t recnum, u
 
 static void PrintKeySettingsPICC(uint8_t keysettings, uint8_t numkeys, bool print2ndbyte) {
     PrintAndLogEx(SUCCESS, "PICC level rights");
-    PrintAndLogEx(SUCCESS, "[%c...] CMK Configuration changeable   : %s", (keysettings & (1 << 3)) ? '1' : '0', (keysettings & (1 << 3)) ? _GREEN_("YES") : _RED_("NO (frozen)"));
-    PrintAndLogEx(SUCCESS, "[.%c..] CMK required for create/delete : %s", (keysettings & (1 << 2)) ? '1' : '0', (keysettings & (1 << 2)) ? _GREEN_("NO") : "YES");
-    PrintAndLogEx(SUCCESS, "[..%c.] Directory list access with CMK : %s", (keysettings & (1 << 1)) ? '1' : '0', (keysettings & (1 << 1)) ? _GREEN_("NO") : "YES");
-    PrintAndLogEx(SUCCESS, "[...%c] CMK is changeable              : %s", (keysettings & (1 << 0)) ? '1' : '0', (keysettings & (1 << 0)) ? _GREEN_("YES") : _RED_("NO (frozen)"));
+    PrintAndLogEx(SUCCESS, "[%c...] CMK Configuration changeable               : %s", (keysettings & (1 << 3)) ? '1' : '0', (keysettings & (1 << 3)) ? _GREEN_("YES") : _RED_("NO (frozen)"));
+    PrintAndLogEx(SUCCESS, "[.%c..] CMK required for create/delete             : %s", (keysettings & (1 << 2)) ? '1' : '0', (keysettings & (1 << 2)) ? _GREEN_("NO") : _RED_("YES"));
+    PrintAndLogEx(SUCCESS, "[..%c.] CMK required for AID list / GetKeySettings : %s", (keysettings & (1 << 1)) ? '1' : '0', (keysettings & (1 << 1)) ? _GREEN_("NO") : _RED_("YES"));
+    PrintAndLogEx(SUCCESS, "[...%c] CMK is changeable                          : %s", (keysettings & (1 << 0)) ? '1' : '0', (keysettings & (1 << 0)) ? _GREEN_("YES") : _RED_("NO (frozen)"));
     PrintAndLogEx(SUCCESS, "");
 
     if (print2ndbyte) {
@@ -2289,16 +2291,19 @@ static void PrintKeySettingsApp(uint8_t keysettings, uint8_t numkeys, bool print
     PrintAndLogEx(SUCCESS, "Application level rights");
     uint8_t rights = ((keysettings >> 4) & 0x0F);
     switch (rights) {
-        case 0x0:
+        case 0x0: {
             PrintAndLogEx(SUCCESS, " - AMK authentication is necessary to change any key (default)");
             break;
-        case 0xE:
+        }
+        case 0xE: {
             PrintAndLogEx(SUCCESS, " - Authentication with the key to be changed (same KeyNo) is necessary to change a key");
             break;
-        case 0xF:
+        }
+        case 0xF: {
             PrintAndLogEx(SUCCESS, " - All keys (except AMK,see Bit0) within this application are frozen");
             break;
-        default:
+        }
+        default: {
             PrintAndLogEx(SUCCESS,
                           " - Authentication with the specified key " _YELLOW_("(0x%02x)") " is necessary to change any key.\n"
                           "A change key and a PICC master key (CMK) can only be changed after authentication with the master key.\n"
@@ -2306,12 +2311,13 @@ static void PrintKeySettingsApp(uint8_t keysettings, uint8_t numkeys, bool print
                           rights & 0x0f
                          );
             break;
+        }
     }
 
-    PrintAndLogEx(SUCCESS, "[%c...] AMK Configuration changeable   : %s", (keysettings & (1 << 3)) ? '1' : '0', (keysettings & (1 << 3)) ? _GREEN_("YES") : _RED_("NO (frozen)"));
-    PrintAndLogEx(SUCCESS, "[.%c..] AMK required for create/delete : %s", (keysettings & (1 << 2)) ? '1' : '0', (keysettings & (1 << 2)) ? _GREEN_("NO") : "YES");
-    PrintAndLogEx(SUCCESS, "[..%c.] Directory list access with AMK : %s", (keysettings & (1 << 1)) ? '1' : '0', (keysettings & (1 << 1)) ? _GREEN_("NO") : "YES");
-    PrintAndLogEx(SUCCESS, "[...%c] AMK is changeable              : %s", (keysettings & (1 << 0)) ? '1' : '0', (keysettings & (1 << 0)) ? _GREEN_("YES") : _RED_("NO (frozen)"));
+    PrintAndLogEx(SUCCESS, "[%c...] AMK Configuration changeable               : %s", (keysettings & (1 << 3)) ? '1' : '0', (keysettings & (1 << 3)) ? _GREEN_("YES") : _RED_("NO (frozen)"));
+    PrintAndLogEx(SUCCESS, "[.%c..] AMK required for create/delete             : %s", (keysettings & (1 << 2)) ? '1' : '0', (keysettings & (1 << 2)) ? _GREEN_("NO") : _RED_("YES"));
+    PrintAndLogEx(SUCCESS, "[..%c.] AMK required for FID list / GetKeySettings : %s", (keysettings & (1 << 1)) ? '1' : '0', (keysettings & (1 << 1)) ? _GREEN_("NO") : _RED_("YES"));
+    PrintAndLogEx(SUCCESS, "[...%c] AMK is changeable                          : %s", (keysettings & (1 << 0)) ? '1' : '0', (keysettings & (1 << 0)) ? _GREEN_("YES") : _RED_("NO (frozen)"));
     PrintAndLogEx(SUCCESS, "");
 
     if (print2ndbyte) {
@@ -2324,10 +2330,11 @@ static void PrintKeySettingsApp(uint8_t keysettings, uint8_t numkeys, bool print
 }
 
 void PrintKeySettings(uint8_t keysettings, uint8_t numkeys, bool applevel, bool print2ndbyte) {
-    if (applevel)
+    if (applevel) {
         PrintKeySettingsApp(keysettings, numkeys, print2ndbyte);
-    else
+    } else {
         PrintKeySettingsPICC(keysettings, numkeys, print2ndbyte);
+    }
 }
 
 static const char *DesfireUnknownStr = "unknown";
@@ -3073,7 +3080,7 @@ int DesfireGetCardUID(DesfireContext_t *ctx) {
     SendCommandMIX(CMD_HF_ISO14443A_READER, ISO14A_CONNECT, 0, 0, NULL, 0);
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_ACK, &resp, 2500) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 

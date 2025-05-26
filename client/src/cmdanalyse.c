@@ -185,9 +185,7 @@ static uint16_t calcXORchecksum(uint8_t *bytes, uint8_t len, uint32_t mask) {
     return 0xFF - calcSumByteXor(bytes, len, mask);
 }
 
-
 //2148050707DB0A0E000001C4000000
-
 // measuring LFSR maximum length
 static int CmdAnalyseLfsr(const char *Cmd) {
     CLIParserContext *ctx;
@@ -910,6 +908,7 @@ static int CmdAnalyseDemodBuffer(const char *Cmd) {
     // add 1 for null terminator.
     uint8_t *data = calloc(len + 1,  sizeof(uint8_t));
     if (data == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         CLIParserFree(ctx);
         return PM3_EMALLOC;
     }
@@ -929,7 +928,7 @@ static int CmdAnalyseDemodBuffer(const char *Cmd) {
     PrintAndLogEx(NORMAL, "");
     g_DemodBufferLen = len;
     free(data);
-    PrintAndLogEx(HINT, "Use `" _YELLOW_("data print") "` to view DemodBuffer");
+    PrintAndLogEx(HINT, "Hint: Use `" _YELLOW_("data print") "` to view DemodBuffer");
     return PM3_SUCCESS;
 }
 

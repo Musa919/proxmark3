@@ -310,7 +310,7 @@ static int CmdKeriClone(const char *Cmd) {
     }
 
     PrintAndLogEx(SUCCESS, "Done!");
-    PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`lf keri read`") " to verify");
+    PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`lf keri read`") " to verify");
     return res;
 }
 
@@ -346,6 +346,10 @@ static int CmdKeriSim(const char *Cmd) {
     PrintAndLogEx(SUCCESS, "Simulating KERI - Internal Id " _YELLOW_("%" PRIu64), internalid);
 
     lf_psksim_t *payload = calloc(1, sizeof(lf_psksim_t) + sizeof(bs));
+    if (payload == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return PM3_EMALLOC;
+    }
     payload->carrier =  2;
     payload->invert = 0;
     payload->clock = 32;

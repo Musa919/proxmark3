@@ -83,7 +83,7 @@ int CmdHFSearch(const char *Cmd) {
 
     int res = PM3_ESOFT;
 
-    uint8_t success[20] = {0};
+    uint8_t success[COUNT_OF_PROTOCOLS] = {0};
 
     PROMPT_CLEARLINE;
     PrintAndLogEx(INPLACE, " Searching for ThinFilm tag...");
@@ -240,47 +240,47 @@ int CmdHFSearch(const char *Cmd) {
         // no need to print 14A hints,  since it will print itself
 
         if (success[THINFILM]) {
-            PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf thinfilm`") " commands\n");
+            PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf thinfilm") "` commands\n");
         }
 
         if (success[LTO]) {
-            PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf lto`") " commands\n");
+            PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf lto") "` commands\n");
         }
 
         if (success[LEGIC]) {
-            PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf legic`") " commands\n");
+            PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf legic") "` commands\n");
         }
 
         if (success[TOPAZ]) {
-            PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf topaz`") " commands\n");
+            PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf topaz") "` commands\n");
         }
 
         if (success[PROTO_TEXKOM]) {
-            PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf texkom`") " commands\n");
+            PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf texkom") "` commands\n");
         }
 
         if (success[PROTO_XEROX]) {
-            PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf xerox`") " commands\n");
+            PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf xerox") "` commands\n");
         }
 
         if (success[ISO_14443B]) {
-            PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf 14b`") " commands\n");
+            PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf 14b") "` commands\n");
         }
 
         if (success[ISO_15693]) {
-            PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf 15`") " commands\n");
+            PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf 15") "` commands\n");
         }
 
         if (success[ICLASS]) {
-            PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf iclass`") " commands\n");
+            PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf iclass") "` commands\n");
         }
 
         if (success[FELICA]) {
-            PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf felica`") " commands\n");
+            PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf felica") "` commands\n");
         }
 
         if (success[PROTO_CRYPTORF]) {
-            PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf cryptorf`") " commands\n");
+            PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf cryptorf") "` commands\n");
         }
     }
 
@@ -336,7 +336,7 @@ int CmdHFTune(const char *Cmd) {
     uint8_t mode[] = {1};
     SendCommandNG(CMD_MEASURE_ANTENNA_TUNING_HF, mode, sizeof(mode));
     if (WaitForResponseTimeout(CMD_MEASURE_ANTENNA_TUNING_HF, &resp, 1000) == false) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for Proxmark HF initialization, aborting");
+        PrintAndLogEx(WARNING, "timeout while waiting for Proxmark HF initialization, aborting");
         return PM3_ETIMEOUT;
     }
 
@@ -359,7 +359,7 @@ int CmdHFTune(const char *Cmd) {
         SendCommandNG(CMD_MEASURE_ANTENNA_TUNING_HF, mode, sizeof(mode));
         if (WaitForResponseTimeout(CMD_MEASURE_ANTENNA_TUNING_HF, &resp, 1000) == false) {
             PrintAndLogEx(NORMAL, "");
-            PrintAndLogEx(WARNING, "Timeout while waiting for Proxmark HF measure, aborting");
+            PrintAndLogEx(WARNING, "timeout while waiting for Proxmark HF measure, aborting");
             break;
         }
 
@@ -386,7 +386,7 @@ int CmdHFTune(const char *Cmd) {
 
     SendCommandNG(CMD_MEASURE_ANTENNA_TUNING_HF, mode, sizeof(mode));
     if (WaitForResponseTimeout(CMD_MEASURE_ANTENNA_TUNING_HF, &resp, 1000) == false) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for Proxmark HF shutdown, aborting");
+        PrintAndLogEx(WARNING, "timeout while waiting for Proxmark HF shutdown, aborting");
         return PM3_ETIMEOUT;
     }
     PrintAndLogEx(NORMAL, "\x1b%c[2K\r", 30);
@@ -498,9 +498,9 @@ int CmdHFSniff(const char *Cmd) {
 
                 PrintAndLogEx(INFO, "HF sniff (%u samples)", retval->len);
 
-                PrintAndLogEx(HINT, "Use `" _YELLOW_("data hpf") "` to remove offset");
-                PrintAndLogEx(HINT, "Use `" _YELLOW_("data plot") "` to view");
-                PrintAndLogEx(HINT, "Use `" _YELLOW_("data save") "` to save");
+                PrintAndLogEx(HINT, "Hint: Use `" _YELLOW_("data hpf") "` to remove offset");
+                PrintAndLogEx(HINT, "Hint: Use `" _YELLOW_("data plot") "` to view");
+                PrintAndLogEx(HINT, "Hint: Use `" _YELLOW_("data save") "` to save");
 
                 // download bigbuf_malloc:d.
                 // it reserve memory from the higher end.
@@ -526,7 +526,7 @@ int handle_hf_plot(bool show_plot) {
 
     PacketResponseNG resp;
     if (GetFromDevice(FPGA_MEM, buf, FPGA_TRACE_SIZE, 0, NULL, 0, &resp, 4000, true) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -600,7 +600,7 @@ static command_t CommandTable[] = {
     {"texkom",      CmdHFTexkom,      AlwaysAvailable, "{ Texkom RFIDs...                     }"},
     {"thinfilm",    CmdHFThinfilm,    AlwaysAvailable, "{ Thinfilm RFIDs...                   }"},
     {"topaz",       CmdHFTopaz,       AlwaysAvailable, "{ TOPAZ (NFC Type 1) RFIDs...         }"},
-    {"vas",         CmdHFVAS,         AlwaysAvailable, "{ Apple Value Added Service           }"},
+    {"vas",         CmdHFVAS,         AlwaysAvailable, "{ Apple Value Added Service...        }"},
 #ifdef HAVE_GD
     {"waveshare",   CmdHFWaveshare,   AlwaysAvailable, "{ Waveshare NFC ePaper...             }"},
 #endif

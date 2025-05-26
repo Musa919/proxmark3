@@ -175,6 +175,10 @@ static int sendTry(uint8_t fc, uint16_t cn, uint32_t delay, bool fmt4041x, bool 
 
     // indala PSK,  clock 32, carrier 0
     lf_psksim_t *payload = calloc(1, sizeof(lf_psksim_t) + sizeof(bs));
+    if (payload == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return PM3_EMALLOC;
+    }
     payload->carrier = 2;
     payload->invert = 0;
     payload->clock = 32;
@@ -405,7 +409,7 @@ static int CmdIndalaDemodAlt(const char *Cmd) {
     // under normal conditions it's < 2048
     uint8_t *data = calloc(MAX_GRAPH_TRACE_LEN, sizeof(uint8_t));
     if (data == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     size_t datasize = getFromGraphBuffer(data);
@@ -756,6 +760,10 @@ static int CmdIndalaSim(const char *Cmd) {
 
     // indala PSK,  clock 32, carrier 0
     lf_psksim_t *payload = calloc(1, sizeof(lf_psksim_t) + sizeof(bs));
+    if (payload == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return PM3_EMALLOC;
+    }
     payload->carrier = 2;
     payload->invert = 0;
     payload->clock = 32;
@@ -946,7 +954,7 @@ static int CmdIndalaClone(const char *Cmd) {
         res = clone_t55xx_tag(blocks, ARRAYLEN(blocks));
     }
     PrintAndLogEx(SUCCESS, "Done!");
-    PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`lf indala reader`") " to verify");
+    PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`lf indala reader`") " to verify");
     return res;
 }
 

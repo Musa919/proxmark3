@@ -46,11 +46,12 @@
  */
 static int sam_send_request_iso15(const uint8_t *const request, const uint8_t request_len, uint8_t *response, uint8_t *response_len, const bool shallow_mod, const bool break_on_nr_mac, const bool prevent_epurse_update) {
     int res = PM3_SUCCESS;
-    if (g_dbglevel >= DBG_DEBUG)
+    if (g_dbglevel >= DBG_DEBUG) {
         DbpString("start sam_send_request_iso14a");
+    }
 
-    uint8_t *buf1 = BigBuf_malloc(ISO7816_MAX_FRAME);
-    uint8_t *buf2 = BigBuf_malloc(ISO7816_MAX_FRAME);
+    uint8_t *buf1 = BigBuf_calloc(ISO7816_MAX_FRAME);
+    uint8_t *buf2 = BigBuf_calloc(ISO7816_MAX_FRAME);
     if (buf1 == NULL || buf2 == NULL) {
         res = PM3_EMALLOC;
         goto out;
@@ -253,12 +254,12 @@ out:
  * @param card_select Pointer to the descriptor of the detected card.
  * @return Status code indicating success or failure of the operation.
  */
-static int sam_set_card_detected_picopass(picopass_hdr_t *card_select) {
+static int sam_set_card_detected_picopass(const picopass_hdr_t *card_select) {
     int res = PM3_SUCCESS;
-    if (g_dbglevel >= DBG_DEBUG)
+    if (g_dbglevel >= DBG_DEBUG) {
         DbpString("start sam_set_card_detected");
-
-    uint8_t   *response = BigBuf_malloc(ISO7816_MAX_FRAME);
+    }
+    uint8_t *response = BigBuf_calloc(ISO7816_MAX_FRAME);
     uint16_t response_len = ISO7816_MAX_FRAME;
 
     // a0 12
@@ -314,8 +315,9 @@ error:
 out:
     BigBuf_free();
 
-    if (g_dbglevel >= DBG_DEBUG)
+    if (g_dbglevel >= DBG_DEBUG) {
         DbpString("end sam_set_card_detected");
+    }
     return res;
 }
 
@@ -379,15 +381,15 @@ int sam_picopass_get_pacs(PacketCommandNG *c) {
         print_result("Response data", sam_response, sam_response_len);
 
     goto out;
-    goto off;
 
 err:
     res = PM3_ENOPACS;
     reply_ng(CMD_HF_SAM_PICOPASS, res, NULL, 0);
     goto off;
+
 out:
     reply_ng(CMD_HF_SAM_PICOPASS, PM3_SUCCESS, sam_response, sam_response_len);
-    goto off;
+
 off:
     if (disconnectAfter) {
         switch_off();

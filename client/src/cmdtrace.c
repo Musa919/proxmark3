@@ -28,6 +28,8 @@
 #include "comms.h"              // for sending cmds to device. GetFromBigBuf
 #include "fileutils.h"          // for saveFile
 #include "cmdlfhitag.h"         // annotate hitag
+#include "cmdlfhitaghts.h"      // annotate hitags
+#include "cmdlfhitagu.h"        // annotate hitagu
 #include "pm3_cmd.h"            // tracelog_hdr_t
 #include "cliparser.h"          // args..
 
@@ -561,8 +563,10 @@ static uint16_t printTraceLine(uint16_t tracepos, uint16_t traceLen, uint8_t *tr
             case ISO_14443A:
             case MFDES:
             case LTO:
-            case SEOS:
                 crcStatus = iso14443A_CRC_check(hdr->isResponse, frame, data_len);
+                break;
+            case SEOS:
+                crcStatus = seos_CRC_check(hdr->isResponse, frame, data_len);
                 break;
             case ISO_7816_4:
                 crcStatus = iso14443A_CRC_check(hdr->isResponse, frame, data_len) == 1 ? 3 : 0;
@@ -583,8 +587,12 @@ static uint16_t printTraceLine(uint16_t tracepos, uint16_t traceLen, uint8_t *tr
             case PROTO_HITAG1:
             case PROTO_HITAGS:
                 crcStatus = hitag1_CRC_check(frame, (data_len * 8) - ((8 - parityBytes[0]) % 8));
-            case PROTO_CRYPTORF:
+                break;
+            case PROTO_HITAGU:
+                crcStatus = hitagu_CRC_check(frame, (data_len * 8) - ((8 - parityBytes[0]) % 8));
+                break;
             case PROTO_HITAG2:
+            case PROTO_CRYPTORF:
             default:
                 break;
         }
@@ -622,6 +630,7 @@ static uint16_t printTraceLine(uint16_t tracepos, uint16_t traceLen, uint8_t *tr
                 && protocol != PROTO_HITAG1
                 && protocol != PROTO_HITAG2
                 && protocol != PROTO_HITAGS
+                && protocol != PROTO_HITAGU
                 && protocol != THINFILM
                 && protocol != FELICA
                 && protocol != LTO
@@ -644,7 +653,7 @@ static uint16_t printTraceLine(uint16_t tracepos, uint16_t traceLen, uint8_t *tr
                 snprintf(line[j / 18] + ((j % 18) * 4), 120, "%02X! ", frame[j]);
             }
 
-        } else if (((protocol == PROTO_HITAG1) || (protocol == PROTO_HITAG2) || (protocol == PROTO_HITAGS))) {
+        } else if (((protocol == PROTO_HITAG1) || (protocol == PROTO_HITAG2) || (protocol == PROTO_HITAGS) || (protocol == PROTO_HITAGU))) {
 
             if (j == 0) {
 
@@ -798,10 +807,16 @@ static uint16_t printTraceLine(uint16_t tracepos, uint16_t traceLen, uint8_t *tr
             annotateHitag2(explanation, sizeof(explanation), frame, data_len, parityBytes[0], hdr->isResponse, mfDicKeys, mfDicKeysCount, false);
             break;
         case PROTO_HITAGS:
-            annotateHitagS(explanation, sizeof(explanation), frame, data_len, hdr->isResponse);
+            annotateHitagS(explanation, sizeof(explanation), frame, (data_len * 8) - ((8 - parityBytes[0]) % 8), hdr->isResponse);
+            break;
+        case PROTO_HITAGU:
+            annotateHitagU(explanation, sizeof(explanation), frame, data_len, hdr->isResponse);
             break;
         case ICLASS:
             annotateIclass(explanation, sizeof(explanation), frame, data_len, hdr->isResponse);
+            break;
+        case SEOS:
+            annotateSeos(explanation, sizeof(explanation), frame, data_len, hdr->isResponse);
             break;
         default:
             break;
@@ -825,7 +840,7 @@ static uint16_t printTraceLine(uint16_t tracepos, uint16_t traceLen, uint8_t *tr
                 annotateTopaz(explanation, sizeof(explanation), frame, data_len);
                 break;
             case ISO_7816_4:
-                annotateIso7816(explanation, sizeof(explanation), frame, data_len);
+                annotateIso7816(explanation, sizeof(explanation), frame, data_len, hdr->isResponse);
                 break;
             case ISO_15693:
                 annotateIso15693(explanation, sizeof(explanation), frame, data_len);
@@ -838,9 +853,6 @@ static uint16_t printTraceLine(uint16_t tracepos, uint16_t traceLen, uint8_t *tr
                 break;
             case PROTO_CRYPTORF:
                 annotateCryptoRF(explanation, sizeof(explanation), frame, data_len);
-                break;
-            case SEOS:
-                annotateSeos(explanation, sizeof(explanation), frame, data_len);
                 break;
             case PROTO_FMCOS20:
                 annotateFMCOS20(explanation, sizeof(explanation), frame, data_len);
@@ -1058,13 +1070,13 @@ static uint16_t printTraceLine(uint16_t tracepos, uint16_t traceLen, uint8_t *tr
         }
 
         if (use_us) {
-            PrintAndLogEx(NORMAL, " %10.1f | %10.1f | %s |fdt (Frame Delay Time): " _YELLOW_("%.1f"),
+            PrintAndLogEx(NORMAL, " %10.1f | %10.1f | %s |Frame Delay Time " _CYAN_("%.1f"),
                           (float)time1 / 13.56,
                           (float)time2 / 13.56,
                           "   ",
                           (float)(next_hdr->timestamp - end_of_transmission_timestamp) / 13.56);
         } else {
-            PrintAndLogEx(NORMAL, " %10u | %10u | %s |fdt (Frame Delay Time): " _YELLOW_("%d"),
+            PrintAndLogEx(NORMAL, " %10u | %10u | %s |Frame Delay Time " _CYAN_("%d"),
                           time1,
                           time2,
                           "   ",
@@ -1091,7 +1103,7 @@ static int download_trace(void) {
 
     gs_trace = calloc(PM3_CMD_DATA_SIZE, sizeof(uint8_t));
     if (gs_trace == NULL) {
-        PrintAndLogEx(FAILED, "Cannot allocate memory for trace");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1100,7 +1112,7 @@ static int download_trace(void) {
     // Query for the size of the trace,  downloading PM3_CMD_DATA_SIZE
     PacketResponseNG resp;
     if (!GetFromDevice(BIG_BUF, gs_trace, PM3_CMD_DATA_SIZE, 0, NULL, 0, &resp, 4000, true)) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         free(gs_trace);
         gs_trace = NULL;
         return PM3_ETIMEOUT;
@@ -1114,7 +1126,7 @@ static int download_trace(void) {
         free(gs_trace);
         gs_trace = calloc(gs_traceLen, sizeof(uint8_t));
         if (gs_trace == NULL) {
-            PrintAndLogEx(FAILED, "Cannot allocate memory for trace");
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             return PM3_EMALLOC;
         }
 
@@ -1219,7 +1231,7 @@ static int CmdTraceLoad(const char *Cmd) {
     gs_traceLen = (long)len;
 
     PrintAndLogEx(SUCCESS, "Recorded Activity (TraceLen = " _YELLOW_("%u") " bytes)", gs_traceLen);
-    PrintAndLogEx(HINT, "try " _YELLOW_("`trace list -1 -t ...`") " to view trace.  Remember the " _YELLOW_("`-1`") " param");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("trace list -1 -t ...") "` to view trace.  Remember the " _YELLOW_("`-1`") " param");
     return PM3_SUCCESS;
 }
 
@@ -1305,12 +1317,13 @@ int CmdTraceList(const char *Cmd) {
                   "trace list -t 14b      -> interpret as " _YELLOW_("ISO14443-B") "\n"
                   "trace list -t 15       -> interpret as " _YELLOW_("ISO15693") "\n"
                   "trace list -t 7816     -> interpret as " _YELLOW_("ISO7816-4") "\n"
-                  "trace list -t cryptorf -> interpret as " _YELLOW_("CryptoRF") "\n\n"
+                  "trace list -t cryptorf -> interpret as " _YELLOW_("CryptoRF") "\n"
                   "trace list -t des      -> interpret as " _YELLOW_("MIFARE DESFire") "\n"
                   "trace list -t felica   -> interpret as " _YELLOW_("ISO18092 / FeliCa") "\n"
-                  "trace list -t hitag1   -> interpret as " _YELLOW_("Hitag 1") "\n"
-                  "trace list -t hitag2   -> interpret as " _YELLOW_("Hitag 2") "\n"
-                  "trace list -t hitags   -> interpret as " _YELLOW_("Hitag S") "\n"
+                  "trace list -t ht1      -> interpret as " _YELLOW_("Hitag 1") "\n"
+                  "trace list -t ht2      -> interpret as " _YELLOW_("Hitag 2") "\n"
+                  "trace list -t hts      -> interpret as " _YELLOW_("Hitag S") "\n"
+                  "trace list -t htu      -> interpret as " _YELLOW_("Hitag µ") "\n"
                   "trace list -t iclass   -> interpret as " _YELLOW_("iCLASS") "\n"
                   "trace list -t legic    -> interpret as " _YELLOW_("LEGIC") "\n"
                   "trace list -t lto      -> interpret as " _YELLOW_("LTO-CM") "\n"
@@ -1335,7 +1348,7 @@ int CmdTraceList(const char *Cmd) {
         arg_lit0("u", NULL, "display times in microseconds instead of clock cycles"),
         arg_lit0("x", NULL, "show hexdump to convert to pcap(ng)\n"
                  "                                   or to import into Wireshark using encapsulation type \"ISO 14443\""),
-        arg_str0("t", "type", NULL, "protocol to annotate the trace"),
+        arg_str0("t", "type", "<str>", "protocol to annotate the trace"),
         arg_str0("f", "file", "<fn>", "filename of dictionary"),
         arg_param_end
     };
@@ -1375,9 +1388,10 @@ int CmdTraceList(const char *Cmd) {
     else if (strcmp(type, "cryptorf") == 0) protocol = PROTO_CRYPTORF;
     else if (strcmp(type, "des") == 0)      protocol = MFDES;
     else if (strcmp(type, "felica") == 0)   protocol = FELICA;
-    else if (strcmp(type, "hitag1") == 0)   protocol = PROTO_HITAG1;
-    else if (strcmp(type, "hitag2") == 0)   protocol = PROTO_HITAG2;
-    else if (strcmp(type, "hitags") == 0)   protocol = PROTO_HITAGS;
+    else if (strcmp(type, "ht1") == 0)   protocol = PROTO_HITAG1;
+    else if (strcmp(type, "ht2") == 0)   protocol = PROTO_HITAG2;
+    else if (strcmp(type, "hts") == 0)   protocol = PROTO_HITAGS;
+    else if (strcmp(type, "htu") == 0)   protocol = PROTO_HITAGU;
     else if (strcmp(type, "iclass") == 0)   protocol = ICLASS;
     else if (strcmp(type, "legic") == 0)    protocol = LEGIC;
     else if (strcmp(type, "lto") == 0)      protocol = LTO;
@@ -1467,8 +1481,8 @@ int CmdTraceList(const char *Cmd) {
         if (protocol == ISO_7816_4)
             PrintAndLogEx(INFO, _YELLOW_("ISO7816-4 / Smartcard") " - Timings n/a");
 
-        if (protocol == PROTO_HITAG1 || protocol == PROTO_HITAG2 || protocol == PROTO_HITAGS) {
-            PrintAndLogEx(INFO, _YELLOW_("Hitag 1 / Hitag 2 / Hitag S") " - Timings in ETU (8us)");
+        if (protocol == PROTO_HITAG1 || protocol == PROTO_HITAG2 || protocol == PROTO_HITAGS || protocol == PROTO_HITAGU) {
+            PrintAndLogEx(INFO, _YELLOW_("Hitag 1 / Hitag 2 / Hitag S / Hitag µ") " - Timings in ETU (8us)");
         }
 
         if (protocol == PROTO_FMCOS20) {
@@ -1549,7 +1563,7 @@ int CmdTraceList(const char *Cmd) {
         }
 
         // reset hitag state  machine
-        if (protocol == PROTO_HITAG1 || protocol == PROTO_HITAG2 || protocol == PROTO_HITAGS) {
+        if (protocol == PROTO_HITAG1 || protocol == PROTO_HITAG2 || protocol == PROTO_HITAGS || protocol == PROTO_HITAGU) {
             annotateHitag2_init();
         }
 
@@ -1574,7 +1588,7 @@ int CmdTraceList(const char *Cmd) {
     }
 
     if (show_hex) {
-        PrintAndLogEx(HINT, "syntax to use: " _YELLOW_("`text2pcap -t \"%%S.\" -l 264 -n <input-text-file> <output-pcapng-file>`"));
+        PrintAndLogEx(HINT, "Hint: Syntax to use: `" _YELLOW_("text2pcap -t \"%%S.\" -l 264 -n <input-text-file> <output-pcapng-file>") "`");
     }
 
     return PM3_SUCCESS;

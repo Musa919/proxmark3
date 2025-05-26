@@ -45,7 +45,7 @@ static int wiegand_new_pacs(uint8_t *padded_pacs, uint8_t plen) {
 
     char *binstr = (char *)calloc((PACS_EXTRA_LONG_FORMAT * 8) + 1, sizeof(uint8_t));
     if (binstr == NULL) {
-        PrintAndLogEx(INFO, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -69,8 +69,7 @@ static int wiegand_new_pacs(uint8_t *padded_pacs, uint8_t plen) {
 
     PrintAndLogEx(NORMAL, "");
     PrintAndLogEx(INFO, "------------------------- " _CYAN_("SIO - Wiegand") " ---------------------------");
-    wiegand_message_t packed = initialize_message_object(top, mid, bot, strlen(binstr));
-    HIDTryUnpack(&packed);
+    decode_wiegand(top, mid, bot, strlen(binstr));
     free(binstr);
     return PM3_SUCCESS;
 }
@@ -214,9 +213,9 @@ int CmdWiegandDecode(const char *Cmd) {
     }
 
     PrintAndLogEx(NORMAL, "");
-    PrintAndLogEx(INFO, "Wiegand decode");
-    wiegand_message_t packed = initialize_message_object(top, mid, bot, blen);
-    HIDTryUnpack(&packed);
+    PrintAndLogEx(INFO, "------------------------- " _CYAN_("Wiegand") " ---------------------------");
+
+    decode_wiegand(top, mid, bot, blen);
     return PM3_SUCCESS;
 }
 

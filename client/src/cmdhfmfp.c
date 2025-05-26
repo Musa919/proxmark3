@@ -361,7 +361,7 @@ static int CmdHFMFPInfo(const char *Cmd) {
                 case DESFIRE_EV2_XL:
                 case DESFIRE_EV3:
                 case DESFIRE_LIGHT: {
-                    PrintAndLogEx(HINT, "Card seems to be MIFARE DESFire.  Try " _YELLOW_("`hf mfdes info`"));
+                    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf mfdes info") "` Card seems to be MIFARE DESFire");
                     PrintAndLogEx(NORMAL, "");
                     DropField();
                     return PM3_SUCCESS;
@@ -1655,7 +1655,7 @@ static int CmdHFMFPChk(const char *Cmd) {
 
         PacketResponseNG resp;
         if (WaitForResponseTimeout(CMD_ACK, &resp, 2500) == false) {
-            PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+            PrintAndLogEx(WARNING, "timeout while waiting for reply");
             return PM3_ETIMEOUT;
         }
 
@@ -1675,6 +1675,10 @@ static int CmdHFMFPChk(const char *Cmd) {
         }
 
         char *fptr = calloc(sizeof(char) * (strlen("hf-mfp-") + strlen("-key")) + card.uidlen * 2 + 1,  sizeof(uint8_t));
+        if (fptr == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
+            return PM3_EMALLOC;
+        }
         strcpy(fptr, "hf-mfp-");
 
         FillFileNameByUID(fptr, card.uid, "-key", card.uidlen);
@@ -1688,12 +1692,12 @@ static int CmdHFMFPChk(const char *Cmd) {
 
     // MAD detection
     if ((memcmp(&foundKeys[0][0][1], "\xA0\xA1\xA2\xA3\xA4\xA5\xA6\xA7\xA0\xA1\xA2\xA3\xA4\xA5\xA6\xA7", AES_KEY_LEN) == 0)) {
-        PrintAndLogEx(HINT, "MAD key detected. Try " _YELLOW_("`hf mfp mad`") " for more details");
+        PrintAndLogEx(HINT, "Hint: MAD key detected. Try " _YELLOW_("`hf mfp mad`") " for more details");
     }
 
     // NDEF detection
     if (has_ndef_key) {
-        PrintAndLogEx(HINT, "NDEF key detected. Try " _YELLOW_("`hf mfp ndefread -h`") " for more details");
+        PrintAndLogEx(HINT, "Hint: NDEF key detected. Try " _YELLOW_("`hf mfp ndefread -h`") " for more details");
     }
     PrintAndLogEx(NORMAL, "");
     return PM3_SUCCESS;
@@ -1738,7 +1742,7 @@ static int CmdHFMFPDump(const char *Cmd) {
         // read card
         uint8_t *mem = calloc(MIFARE_4K_MAXBLOCK * MFBLOCK_SIZE, sizeof(uint8_t));
         if (mem == NULL) {
-            PrintAndLogEx(ERR, "failed to allocate memory");
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             return PM3_EMALLOC;
         }
 
@@ -1999,7 +2003,7 @@ int CmdHFMFPNDEFRead(const char *Cmd) {
 
     if (mfpReadSector(MF_MAD1_SECTOR, MF_KEY_A, (uint8_t *)g_mifarep_mad_key, sector0, verbose)) {
         PrintAndLogEx(ERR, "error, read sector 0. card doesn't have MAD or doesn't have MAD on default keys");
-        PrintAndLogEx(HINT, "Try " _YELLOW_("`hf mfp ndefread -k `") " with your custom key");
+        PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`hf mfp ndefread -k `") " with your custom key");
         return PM3_ESOFT;
     }
 
@@ -2017,7 +2021,7 @@ int CmdHFMFPNDEFRead(const char *Cmd) {
 
         if (mfpReadSector(MF_MAD2_SECTOR, MF_KEY_A, (uint8_t *)g_mifarep_mad_key, sector16, verbose)) {
             PrintAndLogEx(ERR, "error, read sector 0x10. card doesn't have MAD or doesn't have MAD on default keys");
-            PrintAndLogEx(HINT, "Try " _YELLOW_("`hf mfp ndefread -k `") " with your custom key");
+            PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`hf mfp ndefread -k `") " with your custom key");
             return PM3_ESOFT;
         }
     }
@@ -2072,10 +2076,10 @@ int CmdHFMFPNDEFRead(const char *Cmd) {
     pm3_save_dump(filename, data, n, jsfNDEF);
 
     if (verbose == false) {
-        PrintAndLogEx(HINT, "Try " _YELLOW_("`hf mfp ndefread -v`") " for more details");
+        PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`hf mfp ndefread -v`") " for more details");
     } else {
         if (verbose2 == false) {
-            PrintAndLogEx(HINT, "Try " _YELLOW_("`hf mfp ndefread -vv`") " for more details");
+            PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`hf mfp ndefread -vv`") " for more details");
         }
     }
     return PM3_SUCCESS;

@@ -88,7 +88,15 @@ void SendCommandBL(uint64_t cmd, uint64_t arg0, uint64_t arg1, uint64_t arg2, vo
 }
 
 void SendCommandOLD(uint64_t cmd, uint64_t arg0, uint64_t arg1, uint64_t arg2, const void *data, size_t len) {
+
     PacketCommandOLD c = {CMD_UNKNOWN, {0, 0, 0}, {{0}}};
+
+    if (len > PM3_CMD_DATA_SIZE) {
+        PrintAndLogEx(WARNING, "Sending " _RED_("%zu") " bytes of payload is too much for OLD frames, abort", len);
+        return;
+        // return PM3_EOUTOFBOUND;
+    }
+
     c.cmd = cmd;
     c.arg[0] = arg0;
     c.arg[1] = arg1;
@@ -96,6 +104,7 @@ void SendCommandOLD(uint64_t cmd, uint64_t arg0, uint64_t arg1, uint64_t arg2, c
     if (len && data) {
         memcpy(&c.d, data, len);
     }
+
 
 #ifdef COMMS_DEBUG
     PrintAndLogEx(NORMAL, "Sending %s", "OLD");
@@ -142,7 +151,7 @@ static void SendCommandNG_internal(uint16_t cmd, uint8_t *data, size_t len, bool
         return;
     }
     if (len > PM3_CMD_DATA_SIZE) {
-        PrintAndLogEx(WARNING, "Sending %zu bytes of payload is too much, abort", len);
+        PrintAndLogEx(WARNING, "Sending " _RED_("%zu") " bytes of payload is too much, abort", len);
         return;
     }
 
@@ -203,7 +212,7 @@ void SendCommandNG(uint16_t cmd, uint8_t *data, size_t len) {
 void SendCommandMIX(uint64_t cmd, uint64_t arg0, uint64_t arg1, uint64_t arg2, const void *data, size_t len) {
     uint64_t arg[3] = {arg0, arg1, arg2};
     if (len > PM3_CMD_DATA_SIZE_MIX) {
-        PrintAndLogEx(WARNING, "Sending %zu bytes of payload is too much for MIX frames, abort", len);
+        PrintAndLogEx(WARNING, "Sending " _RED_("%zu") " bytes of payload is too much for MIX frames, abort", len);
         return;
     }
     uint8_t cmddata[PM3_CMD_DATA_SIZE];
@@ -761,6 +770,12 @@ bool OpenProxmarkSilent(pm3_device_t **dev, const char *port, uint32_t speed) {
         fflush(stdout);
         if (*dev == NULL) {
             *dev = calloc(sizeof(pm3_device_t), sizeof(uint8_t));
+            if (*dev == NULL) {
+                PrintAndLogEx(ERR, "Failed to allocate memory for pm3_device_t");
+                uart_close(sp);
+                sp = NULL;
+                return false;
+            }
         }
         (*dev)->g_conn = &g_conn; // TODO g_conn shouldn't be global
         return true;
@@ -788,12 +803,12 @@ bool OpenProxmark(pm3_device_t **dev, const char *port, bool wait_for_port, int 
     // check result of uart opening
     if (sp == INVALID_SERIAL_PORT) {
         PrintAndLogEx(WARNING, "\n" _RED_("ERROR:") " invalid serial port " _YELLOW_("%s"), port);
-        PrintAndLogEx(HINT, "Try the shell script " _YELLOW_("`./pm3 --list`") " to get a list of possible serial ports");
+        PrintAndLogEx(HINT, "Hint: Try the shell script `" _YELLOW_("`./pm3 --list") "` to get a list of possible serial ports");
         sp = NULL;
         return false;
     } else if (sp == CLAIMED_SERIAL_PORT) {
         PrintAndLogEx(WARNING, "\n" _RED_("ERROR:") " serial port " _YELLOW_("%s") " is claimed by another process", port);
-        PrintAndLogEx(HINT, "Try the shell script " _YELLOW_("`./pm3 --list`") " to get a list of possible serial ports");
+        PrintAndLogEx(HINT, "Hint: Try the shell script `" _YELLOW_("./pm3 --list") "` to get a list of possible serial ports");
 
         sp = NULL;
         return false;
@@ -818,7 +833,13 @@ bool OpenProxmark(pm3_device_t **dev, const char *port, bool wait_for_port, int 
 
         fflush(stdout);
         if (*dev == NULL) {
-            *dev = calloc(sizeof(pm3_device_t), sizeof(uint8_t));
+            *dev = calloc(1, sizeof(pm3_device_t));
+            if (*dev == NULL) {
+                PrintAndLogEx(ERR, "Failed to allocate memory for pm3_device_t");
+                uart_close(sp);
+                sp = NULL;
+                return false;
+            }
         }
         (*dev)->g_conn = &g_conn; // TODO g_conn shouldn't be global
         return true;
@@ -850,7 +871,7 @@ int TestProxmark(pm3_device_t *dev) {
 #endif
 
     PacketResponseNG resp;
-    if (WaitForResponseTimeoutW(CMD_PING, &resp, timeout, false) == 0) {
+    if (WaitForResponseTimeoutW(CMD_PING, &resp, timeout, false) == false) {
         return PM3_ETIMEOUT;
     }
 
@@ -860,7 +881,7 @@ int TestProxmark(pm3_device_t *dev) {
     }
 
     SendCommandNG(CMD_CAPABILITIES, NULL, 0);
-    if (WaitForResponseTimeoutW(CMD_CAPABILITIES, &resp, 1000, false) == 0) {
+    if (WaitForResponseTimeoutW(CMD_CAPABILITIES, &resp, 1000, false) == false) {
         return PM3_ETIMEOUT;
     }
 
@@ -1041,8 +1062,9 @@ bool WaitForResponseTimeoutW(uint32_t cmd, PacketResponseNG *response, size_t ms
     }
 
     // Add delay depending on the communication channel & speed
-    if (ms_timeout != (size_t) - 1)
+    if (ms_timeout != (size_t) - 1) {
         ms_timeout += communication_delay();
+    }
 
     __atomic_store_n(&timeout_start_time,  msclock(), __ATOMIC_SEQ_CST);
 
@@ -1055,6 +1077,7 @@ bool WaitForResponseTimeoutW(uint32_t cmd, PacketResponseNG *response, size_t ms
         }
 
         while (getReply(response)) {
+
             if (cmd == CMD_UNKNOWN || response->cmd == cmd) {
                 return true;
             }
@@ -1109,7 +1132,9 @@ bool WaitForResponse(uint32_t cmd, PacketResponseNG *response) {
 */
 bool GetFromDevice(DeviceMemType_t memtype, uint8_t *dest, uint32_t bytes, uint32_t start_index, uint8_t *data, uint32_t datalen, PacketResponseNG *response, size_t ms_timeout, bool show_warning) {
 
-    if (dest == NULL) return false;
+    if (dest == NULL) {
+        return false;
+    }
 
     // init to ZERO
     PacketResponseNG resp;

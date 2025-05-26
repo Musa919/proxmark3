@@ -50,7 +50,9 @@ static int smart_loadjson(const char *preferredName, json_t **root) {
 
     json_error_t error;
 
-    if (preferredName == NULL) return 1;
+    if (preferredName == NULL) {
+        return 1;
+    }
 
     char *path;
     int res = searchFile(&path, RESOURCES_SUBDIR, preferredName, ".json", false);
@@ -364,6 +366,10 @@ static int smart_responseEx(uint8_t *out, int maxoutlen, bool verbose) {
 
         uint8_t cmd_getresp[] = {0x00, ISO7816_GET_RESPONSE, 0x00, 0x00, len};
         smart_card_raw_t *payload = calloc(1, sizeof(smart_card_raw_t) + sizeof(cmd_getresp));
+        if (payload == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
+            goto out;
+        }
         payload->flags = SC_RAW | SC_LOG;
         payload->len = sizeof(cmd_getresp);
         payload->wait_delay = 0;
@@ -453,7 +459,7 @@ static int CmdSmartRaw(const char *Cmd) {
 
     smart_card_raw_t *payload = calloc(1, sizeof(smart_card_raw_t) + dlen);
     if (payload == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     payload->len = dlen;
@@ -483,7 +489,7 @@ static int CmdSmartRaw(const char *Cmd) {
 
     uint8_t *buf = calloc(PM3_CMD_DATA_SIZE, sizeof(uint8_t));
     if (buf == NULL) {
-        PrintAndLogEx(DEBUG, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         free(payload);
         return PM3_EMALLOC;
     }
@@ -657,8 +663,8 @@ static int CmdSmartUpgrade(const char *Cmd) {
 
         clearCommandBuffer();
         SendCommandNG(CMD_SMART_UPLOAD, (uint8_t *)&upload, sizeof(upload));
-        if (!WaitForResponseTimeout(CMD_SMART_UPLOAD, &resp, 2000)) {
-            PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        if (WaitForResponseTimeout(CMD_SMART_UPLOAD, &resp, 2000) == false) {
+            PrintAndLogEx(WARNING, "timeout while waiting for reply");
             free(firmware);
             return PM3_ETIMEOUT;
         }
@@ -689,14 +695,14 @@ static int CmdSmartUpgrade(const char *Cmd) {
 
     free(firmware);
     SendCommandNG(CMD_SMART_UPGRADE, (uint8_t *)&payload, sizeof(payload));
-    if (!WaitForResponseTimeout(CMD_SMART_UPGRADE, &resp, 2500)) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+    if (WaitForResponseTimeout(CMD_SMART_UPGRADE, &resp, 2500) == false) {
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
     if (resp.status == PM3_SUCCESS) {
         PrintAndLogEx(SUCCESS, "Sim module firmware upgrade " _GREEN_("successful"));
-        PrintAndLogEx(HINT, "run " _YELLOW_("`hw status`") " to validate the fw version ");
+        PrintAndLogEx(HINT, "Hint: Run `" _YELLOW_("hw status") "` to validate the fw version ");
     } else {
         PrintAndLogEx(FAILED, "Sim module firmware upgrade " _RED_("failed"));
     }
@@ -745,7 +751,7 @@ static int CmdSmartInfo(const char *Cmd) {
     // convert bytes to str.
     char *hexstr = calloc((card.atr_len << 1) + 1, sizeof(uint8_t));
     if (hexstr == NULL) {
-        PrintAndLogEx(WARNING, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -819,7 +825,7 @@ static int CmdSmartReader(const char *Cmd) {
     // convert bytes to str.
     char *hexstr = calloc((card->atr_len << 1) + 1, sizeof(uint8_t));
     if (hexstr == NULL) {
-        PrintAndLogEx(WARNING, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -870,7 +876,7 @@ static int CmdSmartSetClock(const char *Cmd) {
     clearCommandBuffer();
     SendCommandNG(CMD_SMART_SETCLOCK, (uint8_t *)&payload, sizeof(payload));
     PacketResponseNG resp;
-    if (!WaitForResponseTimeout(CMD_SMART_SETCLOCK, &resp, 2500)) {
+    if (WaitForResponseTimeout(CMD_SMART_SETCLOCK, &resp, 2500) == false) {
         PrintAndLogEx(WARNING, "smart card select failed");
         return PM3_ETIMEOUT;
     }
@@ -903,8 +909,10 @@ static int CmdSmartList(const char *Cmd) {
 static void smart_brute_prim(void) {
 
     uint8_t *buf = calloc(PM3_CMD_DATA_SIZE, sizeof(uint8_t));
-    if (!buf)
+    if (buf == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return;
+    }
 
     uint8_t get_card_data[] = {
         0x80, 0xCA, 0x9F, 0x13, 0x00,
@@ -918,6 +926,11 @@ static void smart_brute_prim(void) {
     for (int i = 0; i < ARRAYLEN(get_card_data); i += 5) {
 
         smart_card_raw_t *payload = calloc(1, sizeof(smart_card_raw_t) + 5);
+        if (payload == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
+            free(buf);
+            return;
+        }
         payload->flags = SC_RAW_T0;
         payload->len = 5;
         payload->wait_delay = 0;
@@ -938,8 +951,10 @@ static void smart_brute_prim(void) {
 static int smart_brute_sfi(bool decodeTLV) {
 
     uint8_t *buf = calloc(PM3_CMD_DATA_SIZE, sizeof(uint8_t));
-    if (buf == NULL)
+    if (buf == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return 1;
+    }
 
     int len;
     // READ RECORD
@@ -962,6 +977,11 @@ static int smart_brute_sfi(bool decodeTLV) {
             READ_RECORD[3] = (sfi << 3) | 4;
 
             smart_card_raw_t *payload = calloc(1, sizeof(smart_card_raw_t) +  sizeof(READ_RECORD));
+            if (payload == NULL) {
+                PrintAndLogEx(WARNING, "Failed to allocate memory");
+                free(buf);
+                return 1;
+            }
             payload->flags = SC_RAW_T0;
             payload->len = sizeof(READ_RECORD);
             payload->wait_delay = 0;
@@ -1007,13 +1027,20 @@ static int smart_brute_sfi(bool decodeTLV) {
 static void smart_brute_options(bool decodeTLV) {
 
     uint8_t *buf = calloc(PM3_CMD_DATA_SIZE, sizeof(uint8_t));
-    if (!buf)
+    if (buf == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return;
+    }
 
     // Get processing options command
     uint8_t GET_PROCESSING_OPTIONS[] = {0x80, 0xA8, 0x00, 0x00, 0x02, 0x83, 0x00, 0x00};
 
     smart_card_raw_t *payload = calloc(1, sizeof(smart_card_raw_t) + sizeof(GET_PROCESSING_OPTIONS));
+    if (payload == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        free(buf);
+        return;
+    }
     payload->flags = SC_RAW_T0;
     payload->len = sizeof(GET_PROCESSING_OPTIONS);
     memcpy(payload->data, GET_PROCESSING_OPTIONS, sizeof(GET_PROCESSING_OPTIONS));
@@ -1068,7 +1095,7 @@ static int CmdSmartBruteforceSFI(const char *Cmd) {
 
     uint8_t *buf = calloc(PM3_CMD_DATA_SIZE, sizeof(uint8_t));
     if (buf == NULL) {
-        PrintAndLogEx(WARNING, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1111,6 +1138,12 @@ static int CmdSmartBruteforceSFI(const char *Cmd) {
 
         size_t aidlen = strlen(aid);
         caid = calloc(8 + 2 + aidlen + 1, sizeof(uint8_t));
+        if (caid == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
+            json_decref(root);
+            free(buf);
+            return PM3_EMALLOC;
+        }
         snprintf(caid, 8 + 2 + aidlen + 1, SELECT, aidlen >> 1, aid);
 
         int hexlen = 0;
@@ -1120,6 +1153,12 @@ static int CmdSmartBruteforceSFI(const char *Cmd) {
             continue;
 
         smart_card_raw_t *payload = calloc(1, sizeof(smart_card_raw_t) + hexlen);
+        if (payload == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
+            json_decref(root);
+            free(buf);
+            return PM3_EMALLOC;
+        }
         payload->flags = SC_RAW_T0;
         payload->len = hexlen;
         payload->wait_delay = 0;
@@ -1470,6 +1509,10 @@ int ExchangeAPDUSC(bool verbose, uint8_t *datain, int datainlen, bool activateCa
     *dataoutlen = 0;
 
     smart_card_raw_t *payload = calloc(1, sizeof(smart_card_raw_t) + datainlen);
+    if (payload == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return PM3_EMALLOC;
+    }
     payload->flags = (SC_RAW_T0 | SC_LOG);
     if (activateCard) {
         payload->flags |= (SC_SELECT | SC_CONNECT);

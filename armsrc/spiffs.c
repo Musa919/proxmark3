@@ -312,7 +312,7 @@ static int is_valid_filename(const char *filename) {
 */
 static void copy_in_spiffs(const char *src, const char *dst) {
     uint32_t size = size_in_spiffs(src);
-    uint8_t *mem = BigBuf_malloc(size);
+    uint8_t *mem = BigBuf_calloc(size);
     read_from_spiffs(src, (uint8_t *)mem, size);
     write_to_spiffs(dst, (uint8_t *)mem, size);
 }
@@ -577,19 +577,25 @@ int rdv40_spiffs_make_symlink(const char *linkdest, const char *filename, RDV40S
 // preexistence, avoiding a link being created if filename exists, or avoiding a file being created if
 // symlink exists with same name
 int rdv40_spiffs_read_as_filetype(const char *filename, uint8_t *dst, uint32_t size, RDV40SpiFFSSafetyLevel level) {
+
     RDV40_SPIFFS_SAFE_FUNCTION(
+
         RDV40SpiFFSFileType filetype = filetype_in_spiffs((char *)filename);
+
     switch (filetype) {
-    case RDV40_SPIFFS_FILETYPE_REAL:
+    case RDV40_SPIFFS_FILETYPE_REAL: {
         rdv40_spiffs_read(filename, dst, size, level);
             break;
-        case RDV40_SPIFFS_FILETYPE_SYMLINK:
+        }
+        case RDV40_SPIFFS_FILETYPE_SYMLINK: {
             rdv40_spiffs_read_as_symlink(filename, dst, size, level);
             break;
+        }
         case RDV40_SPIFFS_FILETYPE_BOTH:
         case RDV40_SPIFFS_FILETYPE_UNKNOWN:
-        default:
+        default: {
             break;
+        }
     }
     )
 }

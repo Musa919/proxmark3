@@ -660,6 +660,7 @@ SRCS =  mifare/aiddesfire.c \
 		cmdlfhid.c \
 		cmdlfhitag.c \
 		cmdlfhitaghts.c \
+		cmdlfhitagu.c \
 		cmdlfidteck.c \
 		cmdlfindala.c \
 		cmdlfio.c \
@@ -888,11 +889,19 @@ endif
 ifneq (,$(INSTALLSHARE))
 	    $(Q)$(INSTALLSUDO) $(MKDIR) $(DESTDIR)$(PREFIX)$(PATHSEP)$(INSTALLSHARERELPATH)
 	    # hack ahead: inject installation path into pm3_resources.py
-	    $(Q)sed -i 's|^TOOLS_PATH \?= \?None|TOOLS_PATH="$(DESTDIR)$(PREFIX)$(PATHSEP)$(INSTALLTOOLSRELPATH)"|' pyscripts/pm3_resources.py
-	    $(Q)sed -i 's|^DICTS_PATH \?= \?None|DICTS_PATH="$(DESTDIR)$(PREFIX)$(PATHSEP)$(INSTALLSHARERELPATH)/dictionaries"|' pyscripts/pm3_resources.py
+    ifeq ($(platform),Darwin)
+	    $(Q)sed -E -i '' 's|^TOOLS_PATH \?= \?None|TOOLS_PATH="$(PREFIX)$(PATHSEP)$(INSTALLTOOLSRELPATH)"|' pyscripts/pm3_resources.py
+	    $(Q)sed -E -i '' 's|^DICTS_PATH \?= \?None|DICTS_PATH="$(PREFIX)$(PATHSEP)$(INSTALLSHARERELPATH)/dictionaries"|' pyscripts/pm3_resources.py
+	    $(Q)$(INSTALLSUDO) $(CP) $(INSTALLSHARE) $(DESTDIR)$(PREFIX)$(PATHSEP)$(INSTALLSHARERELPATH)
+	    $(Q)sed -E -i '' 's|^TOOLS_PATH \?=.*|TOOLS_PATH = None|' pyscripts/pm3_resources.py
+	    $(Q)sed -E -i '' 's|^DICTS_PATH \?=.*|DICTS_PATH = None|' pyscripts/pm3_resources.py
+    else
+	    $(Q)sed -i 's|^TOOLS_PATH \?= \?None|TOOLS_PATH="$(PREFIX)$(PATHSEP)$(INSTALLTOOLSRELPATH)"|' pyscripts/pm3_resources.py
+	    $(Q)sed -i 's|^DICTS_PATH \?= \?None|DICTS_PATH="$(PREFIX)$(PATHSEP)$(INSTALLSHARERELPATH)/dictionaries"|' pyscripts/pm3_resources.py
 	    $(Q)$(INSTALLSUDO) $(CP) $(INSTALLSHARE) $(DESTDIR)$(PREFIX)$(PATHSEP)$(INSTALLSHARERELPATH)
 	    $(Q)sed -i 's|^TOOLS_PATH \?=.*|TOOLS_PATH = None|' pyscripts/pm3_resources.py
 	    $(Q)sed -i 's|^DICTS_PATH \?=.*|DICTS_PATH = None|' pyscripts/pm3_resources.py
+    endif
 endif
 	@true
 

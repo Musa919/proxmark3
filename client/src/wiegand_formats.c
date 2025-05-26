@@ -1367,8 +1367,8 @@ static bool Pack_IR56(int format_idx, wiegand_card_t *card, wiegand_message_t *p
 
     if (!validate_card_limit(format_idx, card)) return false;
 
-    set_linear_field(packed, card->FacilityCode, 1, 24);
-    set_linear_field(packed, card->CardNumber, 25, 32);
+    packed->Bot = card->CardNumber;
+    packed->Mid = card->FacilityCode;
 
     if (preamble)
         return add_HID_header(packed);
@@ -1381,8 +1381,8 @@ static bool Unpack_IR56(wiegand_message_t *packed, wiegand_card_t *card) {
 
     if (packed->Length != 56) return false;
 
-    card->FacilityCode = get_linear_field(packed, 1, 24);
-    card->CardNumber = get_linear_field(packed, 25, 32);
+    card->FacilityCode = packed->Mid;
+    card->CardNumber = packed->Bot;
     return true;
 }
 // ---------------------------------------------------------------------------------------------------
@@ -1647,24 +1647,16 @@ bool decode_wiegand(uint32_t top, uint32_t mid, uint32_t bot, int n) {
         return res;
     }
 
-    if (n || ((mid & 0xFFFFFFC0) > 0)) {  // if n > 0 or there's more than 38 bits
+    if (n > 0) {
         wiegand_message_t packed = initialize_message_object(top, mid, bot, n);
         res = HIDTryUnpack(&packed);
-
-    } else { // n <= 0 and 39-64 bits are all 0, try two possible bitlens
-
+    } else {
         wiegand_message_t packed = initialize_message_object(top, mid, bot, n); // 26-37 bits
         res = HIDTryUnpack(&packed);
 
-        n = packed.Length - 1;
-        PrintAndLogEx(INFO, "Trying without a preamble bit...");
-        packed = initialize_message_object(top, mid, bot, n); // iclass has only a preamble bit.
+        PrintAndLogEx(INFO, "Trying with a preamble bit...");
+        packed.Length += 1;
         res |= HIDTryUnpack(&packed);
-
-        if (res == false) {
-            packed = initialize_message_object(top, mid, bot, 38); // 38 bits
-            res |= HIDTryUnpack(&packed);
-        }
     }
 
     if (res == false) {
@@ -1679,22 +1671,24 @@ int HIDDumpPACSBits(const uint8_t *const data, const uint8_t length, bool verbos
     uint8_t pad = data[0];
     char *binstr = (char *)calloc((length * 8) + 1, sizeof(uint8_t));
     if (binstr == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
     bytes_2_binstr(binstr, data + 1, n);
 
-    PrintAndLogEx(NORMAL, "");
-    PrintAndLogEx(SUCCESS, "PACS......... " _GREEN_("%s"), sprint_hex_inrow(data, length));
-    PrintAndLogEx(SUCCESS, "padded bin... " _GREEN_("%s") " ( %zu )", binstr, strlen(binstr));
+//    PrintAndLogEx(NORMAL, "");
+    PrintAndLogEx(INFO, "------------------------- " _CYAN_("Wiegand") " ---------------------------");
+    PrintAndLogEx(SUCCESS, "PACS............. " _GREEN_("%s"), sprint_hex_inrow(data, length));
+    PrintAndLogEx(DEBUG, "padded bin....... " _GREEN_("%s") " ( %zu )", binstr, strlen(binstr));
 
     binstr[strlen(binstr) - pad] = '\0';
-    PrintAndLogEx(SUCCESS, "bin.......... " _GREEN_("%s") " ( %zu )", binstr, strlen(binstr));
+    PrintAndLogEx(DEBUG, "bin.............. " _GREEN_("%s") " ( %zu )", binstr, strlen(binstr));
 
     size_t hexlen = 0;
     uint8_t hex[16] = {0};
     binstr_2_bytes(hex, &hexlen, binstr);
-    PrintAndLogEx(SUCCESS, "hex.......... " _GREEN_("%s"), sprint_hex_inrow(hex, hexlen));
+    PrintAndLogEx(SUCCESS, "hex.............. " _GREEN_("%s"), sprint_hex_inrow(hex, hexlen));
 
     uint32_t top = 0, mid = 0, bot = 0;
     if (binstring_to_u96(&top, &mid, &bot, binstr) != strlen(binstr)) {
@@ -1704,13 +1698,15 @@ int HIDDumpPACSBits(const uint8_t *const data, const uint8_t length, bool verbos
     }
 
     PrintAndLogEx(NORMAL, "");
-    PrintAndLogEx(INFO, "Wiegand decode");
     wiegand_message_t packed = initialize_message_object(top, mid, bot, strlen(binstr));
     HIDTryUnpack(&packed);
 
-    PrintAndLogEx(NORMAL, "");
-
     if (strlen(binstr) >= 26 && verbose) {
+
+
+        // SEOS
+        // iCLASS Legacy SE
+        // iCLASS Legacy SR
 
         // iCLASS Legacy
         PrintAndLogEx(INFO, "Clone to " _YELLOW_("iCLASS Legacy"));
@@ -1721,6 +1717,8 @@ int HIDDumpPACSBits(const uint8_t *const data, const uint8_t length, bool verbos
         PrintAndLogEx(INFO, "Downgrade to " _YELLOW_("HID Prox II"));
         PrintAndLogEx(SUCCESS, "    lf hid clone -w H10301 --bin %s", binstr);
         PrintAndLogEx(NORMAL, "");
+
+        // MIFARE DESFire
 
         // MIFARE Classic
         char mfcbin[28] = {0};

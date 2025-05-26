@@ -34,9 +34,15 @@
 
 // TODO: Optional: use those unique structures in a union, call it em4x70_data_t, but add a first
 //       common header field that includes the command itself (to improve debugging / validation).
+
 typedef struct _em4x70_tag_info_t {
     /// <summary>
-    /// The full data on an em4x70 the tag.
+    /// The full data on an em4170 tag.
+    /// For V4070 tags:
+    /// * UM2 does not exist on the tag
+    /// * Pin does not exist on the tag
+    /// * UM1 (including the lock bits) might be one-time programmable (OTP)
+    ///
     /// [31] == Block 15 MSB == UM2₆₃..UM2₅₆
     /// [30] == Block 15 LSB == UM2₅₅..UM2₄₈
     /// [29] == Block 14 MSB == UM2₄₇..UM2₄₀
@@ -168,6 +174,7 @@ typedef struct _em4x70_cmd_input_calculate_t {
     ID48LIB_KEY key;
     ID48LIB_NONCE rn;
 } em4x70_cmd_input_calculate_t;
+
 typedef struct _em4x70_cmd_output_calculate_t {
     ID48LIB_FRN frn;
     ID48LIB_GRN grn;
@@ -471,7 +478,7 @@ static int CmdEM4x70Info(const char *Cmd) {
     int result = get_em4x70_info(&opts, &info);
 
     if (result == PM3_ETIMEOUT) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
     } else if (result == PM3_SUCCESS) {
         em4x70_print_info_result(&info);
     } else {
@@ -523,7 +530,7 @@ static int CmdEM4x70Write(const char *Cmd) {
     int result = writeblock_em4x70(&opts, &info);
 
     if (result == PM3_ETIMEOUT) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
     } else if (result == PM3_SUCCESS) {
         em4x70_print_info_result(&info);
     } else {
@@ -657,7 +664,7 @@ static int CmdEM4x70Unlock(const char *Cmd) {
     int result = unlock_em4x70(&opts, &info);
 
     if (result == PM3_ETIMEOUT) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
     } else if (result == PM3_SUCCESS) {
         em4x70_print_info_result(&info);
     } else {
@@ -719,7 +726,7 @@ static int CmdEM4x70Auth(const char *Cmd) {
     if (PM3_SUCCESS == result) {
         PrintAndLogEx(INFO, "Tag Auth Response: %02X %02X %02X", data.grn.grn[0], data.grn.grn[1], data.grn.grn[2]);
     } else if (PM3_ETIMEOUT == result) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
     } else {
         PrintAndLogEx(FAILED, "TAG Authentication ( " _RED_("fail") " )");
     }
@@ -761,7 +768,7 @@ static int CmdEM4x70SetPIN(const char *Cmd) {
     int result = setpin_em4x70(&opts, &info);
 
     if (result == PM3_ETIMEOUT) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
     } else if (result == PM3_SUCCESS) {
         em4x70_print_info_result(&info);
         PrintAndLogEx(INFO, "Writing new PIN ( " _GREEN_("ok") " )");
@@ -805,7 +812,7 @@ static int CmdEM4x70SetKey(const char *Cmd) {
     int result = setkey_em4x70(&opts);
 
     if (PM3_ETIMEOUT == result) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     } else if (PM3_SUCCESS != result) {
         PrintAndLogEx(FAILED, "Writing new key " _RED_("fail"));
@@ -850,7 +857,7 @@ static int CmdEM4x70SetKey(const char *Cmd) {
     result = verify_auth_em4x70(&opts_v);
 
     if (PM3_ETIMEOUT == result) {
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return result;
     } else if (PM3_SUCCESS != result) {
         PrintAndLogEx(FAILED, "Authenticating with new key ( " _RED_("fail") " )");
@@ -982,60 +989,57 @@ static int CmdEM4x70Recover(const char *Cmd) {
         result = recover_em4x70(&recover_ctx.opts, &recover_ctx.data);
         if (PM3_EOVFLOW == result) {
             PrintAndLogEx(ERR, "Found more than %d potential keys. This is unexpected and likely a code failure.", MAXIMUM_ID48_RECOVERED_KEY_COUNT);
+            return result;
         } else if (PM3_SUCCESS != result) {
             PrintAndLogEx(ERR, "No potential keys recovered.  This is unexpected and likely a code failure.");
+            return result;
         }
     }
 
     // generate alternate authentication for each potential key -- no error paths, sub-second execution
-    if (PM3_SUCCESS == result) {
-
-        fill_buffer_prng_bytes(&recover_ctx.alt_nonce, sizeof(ID48LIB_NONCE));
-        for (uint8_t i = 0; i < recover_ctx.data.potential_key_count; ++i) {
-            // generate the alternate frn/grn for the alternate nonce
-            id48lib_generator(&recover_ctx.data.potential_keys[i], &recover_ctx.alt_nonce, &recover_ctx.alt_frn[i], &recover_ctx.alt_grn[i]);
-        }
+    fill_buffer_prng_bytes(&recover_ctx.alt_nonce, sizeof(ID48LIB_NONCE));
+    for (uint8_t i = 0; i < recover_ctx.data.potential_key_count; ++i) {
+        // generate the alternate frn/grn for the alternate nonce
+        id48lib_generator(&recover_ctx.data.potential_keys[i], &recover_ctx.alt_nonce, &recover_ctx.alt_frn[i], &recover_ctx.alt_grn[i]);
     }
 
     // display alternate authentication for each potential key -- no error paths
-    if (PM3_SUCCESS == result) {
+    PrintAndLogEx(INFO, "Recovered %d potential keys:", recover_ctx.data.potential_key_count);
+    for (uint8_t i = 0; i < recover_ctx.data.potential_key_count; ++i) {
+        // generate an alternative authentication based on the potential key
+        // and the alternate nonce.
+        ID48LIB_KEY q = recover_ctx.data.potential_keys[i];
+        ID48LIB_FRN alt_frn = recover_ctx.alt_frn[i];
+        ID48LIB_GRN alt_grn = recover_ctx.alt_grn[i];
 
-        PrintAndLogEx(INFO, "Recovered %d potential keys:", recover_ctx.data.potential_key_count);
-        for (uint8_t i = 0; i < recover_ctx.data.potential_key_count; ++i) {
-            // generate an alternative authentication based on the potential key
-            // and the alternate nonce.
-            ID48LIB_KEY q = recover_ctx.data.potential_keys[i];
-            ID48LIB_FRN alt_frn = recover_ctx.alt_frn[i];
-            ID48LIB_GRN alt_grn = recover_ctx.alt_grn[i];
-
-            // dump the results to screen, to enable the user to manually check validity
-            PrintAndLogEx(INFO,
-                          "Potential Key #%d: %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
-                          " -->  " _YELLOW_("lf em 4x70 auth --rnd %02X%02X%02X%02X%02X%02X%02X --frn %02X%02X%02X%02X")
-                          " --> %02X%02X%02X",
-                          i,
-                          q.k[ 0], q.k[ 1], q.k[ 2], q.k[ 3], q.k[ 4], q.k[ 5],
-                          q.k[ 6], q.k[ 7], q.k[ 8], q.k[ 9], q.k[10], q.k[11],
-                          recover_ctx.alt_nonce.rn[0],
-                          recover_ctx.alt_nonce.rn[1],
-                          recover_ctx.alt_nonce.rn[2],
-                          recover_ctx.alt_nonce.rn[3],
-                          recover_ctx.alt_nonce.rn[4],
-                          recover_ctx.alt_nonce.rn[5],
-                          recover_ctx.alt_nonce.rn[6],
-                          alt_frn.frn[0],
-                          alt_frn.frn[1],
-                          alt_frn.frn[2],
-                          alt_frn.frn[3],
-                          alt_grn.grn[0],
-                          alt_grn.grn[1],
-                          alt_grn.grn[2]
-                         );
-        }
-        printf("\n");
+        // dump the results to screen, to enable the user to manually check validity
+        PrintAndLogEx(INFO,
+                      "Potential Key #%d: %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x"
+                      " -->  " _YELLOW_("lf em 4x70 auth --rnd %02X%02X%02X%02X%02X%02X%02X --frn %02X%02X%02X%02X")
+                      " --> %02X%02X%02X",
+                      i,
+                      q.k[ 0], q.k[ 1], q.k[ 2], q.k[ 3], q.k[ 4], q.k[ 5],
+                      q.k[ 6], q.k[ 7], q.k[ 8], q.k[ 9], q.k[10], q.k[11],
+                      recover_ctx.alt_nonce.rn[0],
+                      recover_ctx.alt_nonce.rn[1],
+                      recover_ctx.alt_nonce.rn[2],
+                      recover_ctx.alt_nonce.rn[3],
+                      recover_ctx.alt_nonce.rn[4],
+                      recover_ctx.alt_nonce.rn[5],
+                      recover_ctx.alt_nonce.rn[6],
+                      alt_frn.frn[0],
+                      alt_frn.frn[1],
+                      alt_frn.frn[2],
+                      alt_frn.frn[3],
+                      alt_grn.grn[0],
+                      alt_grn.grn[1],
+                      alt_grn.grn[2]
+                     );
     }
+    printf("\n");
+
     // which of those keys actually validates?
-    if (PM3_SUCCESS == result && recover_ctx.opts.verify) {
+    if (recover_ctx.opts.verify) {
         // TODO: automatic verification against a present tag.
         // Updates ctx.potential_keys_validated[10] and ctx.keys_validated_count
         PrintAndLogEx(WARNING, "Automatic verification against tag is not yet implemented.");
@@ -1182,44 +1186,42 @@ static int CmdEM4x70AutoRecover(const char *Cmd) {
 
     // 1. Verify passed parameters authenticate with the tag (safety check)
     //    lf em 4x70 auth --rnd <rnd_1> --frn <frn_1>
-    if (PM3_SUCCESS == result) {
-        PrintAndLogEx(INFO, "Step 1. Verifying passed parameters authenticate with the tag (safety check)");
-        PrintAndLogEx(HINT, "        " _YELLOW_("lf em 4x70 auth --rnd %s --frn %s"), rnd_string, frn_string);
+    PrintAndLogEx(INFO, "Step 1. Verifying passed parameters authenticate with the tag (safety check)");
+    PrintAndLogEx(HINT, "Hint:        " _YELLOW_("lf em 4x70 auth --rnd %s --frn %s"), rnd_string, frn_string);
 
-        em4x70_cmd_input_auth_t opts_auth = {
-            .use_parity = opts.parity,
-            .rn  = opts.nonce,
-            .frn = opts.frn,
-        };
+    em4x70_cmd_input_auth_t opts_auth = {
+        .use_parity = opts.parity,
+        .rn  = opts.nonce,
+        .frn = opts.frn,
+    };
 
-        em4x70_cmd_output_auth_t tag_grn;
+    em4x70_cmd_output_auth_t tag_grn;
 
-        result = auth_em4x70(&opts_auth, &tag_grn);
+    result = auth_em4x70(&opts_auth, &tag_grn);
 
-        if (PM3_ETIMEOUT == result) {
-            PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
-            return result;
-        } else if (PM3_SUCCESS != result) {
-            PrintAndLogEx(FAILED, "Authenticating with provided values ( " _RED_("fail") " )");
-            return result;
-        } else if (memcmp(&opts.grn, &tag_grn, sizeof(ID48LIB_GRN)) != 0) {
-            PrintAndLogEx(FAILED, "Authenticating with new key returned %02x %02x %02x"
-                          , tag_grn.grn.grn[0]
-                          , tag_grn.grn.grn[1]
-                          , tag_grn.grn.grn[2]
-                         );
-            PrintAndLogEx(FAILED, "Expected %s [maybe 5 lsb of key wrong?] ( " _RED_("fail") " )", grn_string);
-            result = PM3_EWRONGANSWER;
-            return result;
-        }
-        last_successful_step = 1;
+    if (PM3_ETIMEOUT == result) {
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
+        return result;
+    } else if (PM3_SUCCESS != result) {
+        PrintAndLogEx(FAILED, "Authenticating with provided values ( " _RED_("fail") " )");
+        return result;
+    } else if (memcmp(&opts.grn, &tag_grn, sizeof(ID48LIB_GRN)) != 0) {
+        PrintAndLogEx(FAILED, "Authenticating with new key returned %02x %02x %02x"
+                      , tag_grn.grn.grn[0]
+                      , tag_grn.grn.grn[1]
+                      , tag_grn.grn.grn[2]
+                     );
+        PrintAndLogEx(FAILED, "Expected %s [maybe 5 lsb of key wrong?] ( " _RED_("fail") " )", grn_string);
+        result = PM3_EWRONGANSWER;
+        return result;
     }
+    last_successful_step = 1;
 
     // 2/3/4. Brute force the key bits in block 7,8,9
     //        lf em 4x70 write -b N -d 0000
     //        lf em 4x70 brute -b N --rnd <rnd_1> --frn <frn_1>
     //        lf em 4x70 write -b N -d <key_block_N>
-    for (uint8_t block = 9; (PM3_SUCCESS == result) && (block > 6); --block) {
+    for (uint8_t block = 9; block > 6; --block) {
         uint8_t step =
             block == 9 ? 2 :
             block == 8 ? 3 :
@@ -1228,96 +1230,88 @@ static int CmdEM4x70AutoRecover(const char *Cmd) {
         em4x70_cmd_output_brute_t brute = {0};
 
         //    lf em 4x70 write   -b N -d 0000
-        if (PM3_SUCCESS == result) {
-            PrintAndLogEx(INFO, "Step %d. Brute force the key bits in block %d", step, block);
-            PrintAndLogEx(HINT, "        " _YELLOW_("lf em 4x70 write -b %d -d 0000"), block);
+        PrintAndLogEx(INFO, "Step %d. Brute force the key bits in block %d", step, block);
+        PrintAndLogEx(HINT, "Hint:        " _YELLOW_("lf em 4x70 write -b %d -d 0000"), block);
 
-            em4x70_cmd_input_writeblock_t opt_write_zeros = {
-                .use_parity = opts.parity,
-                .block = block,
-                .value = {0x00, 0x00},
-            };
+        em4x70_cmd_input_writeblock_t opt_write_zeros = {
+            .use_parity = opts.parity,
+            .block = block,
+            .value = {0x00, 0x00},
+        };
 
-            result = writeblock_em4x70(&opt_write_zeros, &tag_info);
+        result = writeblock_em4x70(&opt_write_zeros, &tag_info);
 
-            if (PM3_ETIMEOUT == result) {
-                PrintAndLogEx(FAILED, "Timeout while waiting for reply.");
-                PrintAndLogEx(HINT, "Block %d data may have been overwritten. Manually restart at step %d", block, step);
-                return result;
-            } else if (PM3_SUCCESS != result) {
-                PrintAndLogEx(FAILED, "Writing block %d ( " _RED_("fail") " )", block);
-                PrintAndLogEx(HINT, "Block %d data was overwritten.  Manually restart at step %d", block, step);
-                return result;
-            }
+        if (PM3_ETIMEOUT == result) {
+            PrintAndLogEx(FAILED, "timeout while waiting for reply");
+            PrintAndLogEx(HINT, "Hint: Block %d data may have been overwritten. Manually restart at step %d", block, step);
+            return result;
+        } else if (PM3_SUCCESS != result) {
+            PrintAndLogEx(FAILED, "Writing block %d ( " _RED_("fail") " )", block);
+            PrintAndLogEx(HINT, "Hint: Block %d data was overwritten.  Manually restart at step %d", block, step);
+            return result;
         }
 
         //    lf em 4x70 brute -b N --rnd <rnd_1> --frn <frn_1>
-        if (PM3_SUCCESS == result) {
-            PrintAndLogEx(HINT, "        " _YELLOW_("lf em 4x70 brute -b %d --rnd %s --frn %s"), block, rnd_string, frn_string);
+        PrintAndLogEx(HINT, "Hint:        " _YELLOW_("lf em 4x70 brute -b %d --rnd %s --frn %s"), block, rnd_string, frn_string);
 
-            em4x70_cmd_input_brute_t opts_brute = {
-                .use_parity = opts.parity,
-                .block = block,
-                .rn = opts.nonce,
-                .frn = opts.frn,
-                .partial_key_start = {0},
-            };
+        em4x70_cmd_input_brute_t opts_brute = {
+            .use_parity = opts.parity,
+            .block = block,
+            .rn = opts.nonce,
+            .frn = opts.frn,
+            .partial_key_start = {0},
+        };
 
-            result = brute_em4x70(&opts_brute, &brute);
+        result = brute_em4x70(&opts_brute, &brute);
 
-            if (PM3_ETIMEOUT == result) {
-                PrintAndLogEx(FAILED, "Timeout while waiting for reply.");
-                PrintAndLogEx(HINT, "Block %d data was overwritten. Manually restart at step %d", block, step);
-                return result;
-            } else if (PM3_SUCCESS != result) {
-                PrintAndLogEx(FAILED, "Writing block %d ( " _RED_("fail") " )", block);
-                PrintAndLogEx(HINT, "Block %d data was overwritten. Manually restart at step %d", block, step);
-                return result;
-            } else {
-                PrintAndLogEx(INFO, "        Found: Partial key in block %d is " _GREEN_("%02X%02X")
-                              , block
-                              , brute.partial_key[0]
-                              , brute.partial_key[1]
-                             );
-                // Save the partial key...
-                if (block == 9) {
-                    opts.key.k[0] = brute.partial_key[0];
-                    opts.key.k[1] = brute.partial_key[1];
-                } else if (block == 8) {
-                    opts.key.k[2] = brute.partial_key[0];
-                    opts.key.k[3] = brute.partial_key[1];
-                } else if (block == 7) {
-                    opts.key.k[4] = brute.partial_key[0];
-                    opts.key.k[5] = brute.partial_key[1];
-                }
+        if (PM3_ETIMEOUT == result) {
+            PrintAndLogEx(FAILED, "timeout while waiting for reply");
+            PrintAndLogEx(HINT, "Hint: Block %d data was overwritten. Manually restart at step %d", block, step);
+            return result;
+        } else if (PM3_SUCCESS != result) {
+            PrintAndLogEx(FAILED, "Writing block %d ( " _RED_("fail") " )", block);
+            PrintAndLogEx(HINT, "Hint: Block %d data was overwritten. Manually restart at step %d", block, step);
+            return result;
+        } else {
+            PrintAndLogEx(INFO, "        Found: Partial key in block %d is " _GREEN_("%02X%02X")
+                          , block
+                          , brute.partial_key[0]
+                          , brute.partial_key[1]
+                         );
+            // Save the partial key...
+            if (block == 9) {
+                opts.key.k[0] = brute.partial_key[0];
+                opts.key.k[1] = brute.partial_key[1];
+            } else if (block == 8) {
+                opts.key.k[2] = brute.partial_key[0];
+                opts.key.k[3] = brute.partial_key[1];
+            } else if (block == 7) {
+                opts.key.k[4] = brute.partial_key[0];
+                opts.key.k[5] = brute.partial_key[1];
             }
         }
         //    lf em 4x70 write   -b N -d <key_block_N>
-        if (PM3_SUCCESS == result) {
-            PrintAndLogEx(HINT, "        " _YELLOW_("lf em 4x70 write -b %d -d %02X%02X"), block, brute.partial_key[0], brute.partial_key[1]);
+        PrintAndLogEx(HINT, "Hint:        " _YELLOW_("lf em 4x70 write -b %d -d %02X%02X"), block, brute.partial_key[0], brute.partial_key[1]);
 
-            em4x70_cmd_input_writeblock_t opt_write_zeros = {
-                .use_parity = opts.parity,
-                .block = block,
-                .value = {brute.partial_key[0], brute.partial_key[1]},
-            };
+        em4x70_cmd_input_writeblock_t opt_write_zeros2 = {
+            .use_parity = opts.parity,
+            .block = block,
+            .value = {brute.partial_key[0], brute.partial_key[1]},
+        };
 
-            result = writeblock_em4x70(&opt_write_zeros, &tag_info);
+        result = writeblock_em4x70(&opt_write_zeros2, &tag_info);
 
-            if (PM3_ETIMEOUT == result) {
-                PrintAndLogEx(FAILED, "Timeout while waiting for reply.");
-                PrintAndLogEx(HINT, "Block %d data (" _GREEN_("%02X%02X") ") may need to be rewritten", block, brute.partial_key[0], brute.partial_key[1]);
-                return result;
-            } else if (PM3_SUCCESS != result) {
-                PrintAndLogEx(FAILED, "Writing block %d ( " _RED_("fail") " )", block);
-                PrintAndLogEx(HINT, "Block %d data (" _GREEN_("%02X%02X") ") may need to be rewritten", block, brute.partial_key[0], brute.partial_key[1]);
-                return result;
-            }
+        if (PM3_ETIMEOUT == result) {
+            PrintAndLogEx(FAILED, "timeout while waiting for reply");
+            PrintAndLogEx(HINT, "Hint: Block %d data (" _GREEN_("%02X%02X") ") may need to be rewritten", block, brute.partial_key[0], brute.partial_key[1]);
+            return result;
+        } else if (PM3_SUCCESS != result) {
+            PrintAndLogEx(FAILED, "Writing block %d ( " _RED_("fail") " )", block);
+            PrintAndLogEx(HINT, "Hint: Block %d data (" _GREEN_("%02X%02X") ") may need to be rewritten", block, brute.partial_key[0], brute.partial_key[1]);
+            return result;
         }
 
-        if (PM3_SUCCESS == result) {
-            last_successful_step = step;
-        }
+        last_successful_step = step;
     }
     // The good news is that, if the above succeeded, then from this point forward, the tag remains in a known-good state.
 
@@ -1326,108 +1320,102 @@ static int CmdEM4x70AutoRecover(const char *Cmd) {
 
     // 5. Recover potential values of the lower 48 bits of the key
     //    lf em 4x70 recover --key <key_block_9><key_block_8><key_block_7> --rnd <rnd_1> --frn <frn_1>
-    if (PM3_SUCCESS == result) {
-        PrintAndLogEx(INFO, "Step 5. Recover potential values of the lower 48 bits of the key");
-        PrintAndLogEx(HINT, "        " _YELLOW_("lf em 4x70 recover --key %s --rnd %s --frn %s --grn %s"), key_string, rnd_string, frn_string, grn_string);
+    PrintAndLogEx(INFO, "Step 5. Recover potential values of the lower 48 bits of the key");
+    PrintAndLogEx(HINT, "Hint:        " _YELLOW_("lf em 4x70 recover --key %s --rnd %s --frn %s --grn %s"), key_string, rnd_string, frn_string, grn_string);
 
-        result = recover_em4x70(&opts, &data);
+    result = recover_em4x70(&opts, &data);
 
-        if (PM3_EOVFLOW == result) {
-            PrintAndLogEx(ERR, "Found more than %d potential keys. This is unexpected and likely a code failure.", MAXIMUM_ID48_RECOVERED_KEY_COUNT);
-            return result;
-        } else if (PM3_SUCCESS != result) {
-            PrintAndLogEx(ERR, "No potential keys recovered.  This is unexpected and likely a code failure.");
-            return result;
-        } else {
-            PrintAndLogEx(INFO, "        Found " _GREEN_("%d") " potential keys", data.potential_key_count);
-            for (uint8_t idx = 0; idx < data.potential_key_count; ++idx) {
-                ID48LIB_KEY q = data.potential_keys[idx];
-                PrintAndLogEx(DEBUG, "        Potential Key %d: %s %02X%02X%02X%02X%02X%02X"
-                              , idx
-                              , key_string
-                              , q.k[ 6]
-                              , q.k[ 7]
-                              , q.k[ 8]
-                              , q.k[ 9]
-                              , q.k[10]
-                              , q.k[11]
-                             );
-            }
-            last_successful_step = 5;
+    if (PM3_EOVFLOW == result) {
+        PrintAndLogEx(ERR, "Found more than %d potential keys. This is unexpected and likely a code failure.", MAXIMUM_ID48_RECOVERED_KEY_COUNT);
+        return result;
+    } else if (PM3_SUCCESS != result) {
+        PrintAndLogEx(ERR, "No potential keys recovered.  This is unexpected and likely a code failure.");
+        return result;
+    } else {
+        PrintAndLogEx(INFO, "        Found " _GREEN_("%d") " potential keys", data.potential_key_count);
+        for (uint8_t idx = 0; idx < data.potential_key_count; ++idx) {
+            ID48LIB_KEY q = data.potential_keys[idx];
+            PrintAndLogEx(DEBUG, "        Potential Key %d: %s %02X%02X%02X%02X%02X%02X"
+                          , idx
+                          , key_string
+                          , q.k[ 6]
+                          , q.k[ 7]
+                          , q.k[ 8]
+                          , q.k[ 9]
+                          , q.k[10]
+                          , q.k[11]
+                         );
         }
+        last_successful_step = 5;
     }
 
     // 6. Verify which potential key is actually on the tag (using a different rnd/frn combination)
     //    lf em 4x70 auth --rnd <rnd_2> --frn <frn_N>
-    if (PM3_SUCCESS == result) {
-        PrintAndLogEx(INFO, "Step 6. Verify which potential key is actually on the tag");
+    PrintAndLogEx(INFO, "Step 6. Verify which potential key is actually on the tag");
 
-        em4x70_cmd_input_verify_auth_t opts_v = {
-            .use_parity = opts.parity,
-            //.rn  = {{0}},
-            //.frn = {{0}},
-            //.grn = {{0}},
-        };
+    em4x70_cmd_input_verify_auth_t opts_v = {
+        .use_parity = opts.parity,
+        //.rn  = {{0}},
+        //.frn = {{0}},
+        //.grn = {{0}},
+    };
 
-        // TODO: retry a few time, if >1 key validated with the new nonce
-        bool continue_loop = true;
-        bool found_one_key = false;
-        bool found_more_than_one_key = false;
-        uint8_t first_validated_key_idx = 0xFF;
+    // TODO: retry a few time, if >1 key validated with the new nonce
+    bool continue_loop = true;
+    bool found_one_key = false;
+    bool found_more_than_one_key = false;
+    uint8_t first_validated_key_idx = 0xFF;
 
-        for (uint8_t attempt = 0; continue_loop && (attempt  < 10); ++attempt) {
-            continue_loop = false;
-            found_one_key = false;
-            found_more_than_one_key = false;
-            first_validated_key_idx = 0xFF;
-            fill_buffer_prng_bytes(&opts_v.rn, sizeof(ID48LIB_NONCE));
+    for (uint8_t attempt = 0; continue_loop && (attempt  < 10); ++attempt) {
+        continue_loop = false;
+        found_one_key = false;
+        found_more_than_one_key = false;
+        first_validated_key_idx = 0xFF;
+        fill_buffer_prng_bytes(&opts_v.rn, sizeof(ID48LIB_NONCE));
 
-            for (uint8_t i = 0; i < data.potential_key_count; ++i) {
-                // generate the alternate frn/grn for this key + nonce combo
-                id48lib_generator(&data.potential_keys[i], &opts_v.rn, &opts_v.frn, &opts_v.grn);
+        for (uint8_t i = 0; i < data.potential_key_count; ++i) {
+            // generate the alternate frn/grn for this key + nonce combo
+            id48lib_generator(&data.potential_keys[i], &opts_v.rn, &opts_v.frn, &opts_v.grn);
 
-                int tmpResult = verify_auth_em4x70(&opts_v);
-                if (PM3_SUCCESS == tmpResult) {
-                    if (!found_one_key) {
-                        first_validated_key_idx = i;
-                        found_one_key = true;
-                    } else {
-                        found_more_than_one_key = true;
-                    }
+            int tmpResult = verify_auth_em4x70(&opts_v);
+            if (PM3_SUCCESS == tmpResult) {
+                if (!found_one_key) {
+                    first_validated_key_idx = i;
+                    found_one_key = true;
+                } else {
+                    found_more_than_one_key = true;
                 }
             }
-
-            if (found_one_key == false) {
-                PrintAndLogEx(WARNING, "No potential keys validated.  Will try again with different nonce");
-                continue_loop = true;
-                msleep(2000); // delay 2 seconds ... in case tag was bumped, etc.
-            } else if (found_more_than_one_key) {
-                PrintAndLogEx(WARNING, "Multiple potential keys validated.  Will try different nonce");
-                continue_loop = true;
-                msleep(2000); // delay 2 seconds ... in case tag was bumped, etc.
-            } else {
-                last_successful_step = 6;
-            }
         }
 
-        if ((found_one_key == false) || found_more_than_one_key) {
-            PrintAndLogEx(FAILED, "Unable to recover any of the multiple potential keys");
-            PrintAndLogEx(FAILED, "Check tag for good coupling / position!");
-            return PM3_EFAILED;
+        if (found_one_key == false) {
+            PrintAndLogEx(WARNING, "No potential keys validated.  Will try again with different nonce");
+            continue_loop = true;
+            msleep(2000); // delay 2 seconds ... in case tag was bumped, etc.
+        } else if (found_more_than_one_key) {
+            PrintAndLogEx(WARNING, "Multiple potential keys validated.  Will try different nonce");
+            continue_loop = true;
+            msleep(2000); // delay 2 seconds ... in case tag was bumped, etc.
         } else {
-            // print the validated key to the string buffer (for step 7)
-            ID48LIB_KEY q = data.potential_keys[first_validated_key_idx];
-            snprintf(key_string, 25, "%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
-                     q.k[ 0], q.k[ 1], q.k[ 2], q.k[ 3], q.k[ 4], q.k[ 5],
-                     q.k[ 6], q.k[ 7], q.k[ 8], q.k[ 9], q.k[10], q.k[11]
-                    );
+            last_successful_step = 6;
         }
+    }
+
+    if ((found_one_key == false) || found_more_than_one_key) {
+        PrintAndLogEx(FAILED, "Unable to recover any of the multiple potential keys");
+        PrintAndLogEx(FAILED, "Check tag for good coupling / position!");
+        return PM3_EFAILED;
+    } else {
+        // print the validated key to the string buffer (for step 7)
+        ID48LIB_KEY q = data.potential_keys[first_validated_key_idx];
+        snprintf(key_string, 25, "%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X%02X",
+                 q.k[ 0], q.k[ 1], q.k[ 2], q.k[ 3], q.k[ 4], q.k[ 5],
+                 q.k[ 6], q.k[ 7], q.k[ 8], q.k[ 9], q.k[10], q.k[11]
+                );
     }
     // 7. Print the validated key
-    if (PM3_SUCCESS == result) {
-        PrintAndLogEx(SUCCESS, "Recovered key... " _GREEN_("%s"), key_string);
-        last_successful_step = 7;
-    }
+    PrintAndLogEx(SUCCESS, "Recovered key... " _GREEN_("%s"), key_string);
+    last_successful_step = 7;
 
     // For posterity, step 7 used to do the following:
     // 7. Print the validated key --OR-- Print that the tag is still OK --OR-- Print instructions on what to retry to recover tag to a good state
@@ -1571,7 +1559,7 @@ bool detect_4x70_block(void) {
     int result = get_em4x70_info(&opts, &info);
 
     if (result == PM3_ETIMEOUT) { // consider removing this output?
-        PrintAndLogEx(WARNING, "Timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
     }
     return result == PM3_SUCCESS;
 }

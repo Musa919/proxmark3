@@ -36,9 +36,9 @@
 #include "protocols.h"
 #include "generator.h"
 #include "desfire_crypto.h"  // UL-C authentication helpers
+#include "mifare.h"  // for iso14a_polling_frame_t structure
 
 #define MAX_ISO14A_TIMEOUT 524288
-
 // this timeout is in MS
 static uint32_t iso14a_timeout;
 
@@ -133,6 +133,34 @@ static uint32_t LastProxToAirDuration;
 #define SEC_Y 0x00
 #define SEC_Z 0xc0
 
+
+static const iso14a_polling_frame_t WUPA_CMD_FRAME = {
+    .frame = { ISO14443A_CMD_WUPA },
+    .frame_length = 1,
+    .last_byte_bits = 7,
+    .extra_delay = 0
+};
+
+static const iso14a_polling_frame_t MAGWUPA_CMD_FRAMES[] = {
+    {{ MAGSAFE_CMD_WUPA_1 }, 1, 7, 0},
+    {{ MAGSAFE_CMD_WUPA_2 }, 1, 7, 0},
+    {{ MAGSAFE_CMD_WUPA_3 }, 1, 7, 0},
+    {{ MAGSAFE_CMD_WUPA_4 }, 1, 7, 0}
+};
+
+// Polling frames and configurations
+iso14a_polling_parameters_t WUPA_POLLING_PARAMETERS = {
+    .frames = { {{ ISO14443A_CMD_WUPA }, 1, 7, 0 }},
+    .frame_count = 1,
+    .extra_timeout = 0,
+};
+
+iso14a_polling_parameters_t REQA_POLLING_PARAMETERS = {
+    .frames = { {{ ISO14443A_CMD_REQA }, 1, 7, 0 }},
+    .frame_count = 1,
+    .extra_timeout = 0,
+};
+
 /*
 Default HF 14a config is set to:
     forceanticol = 0 (auto)
@@ -140,21 +168,17 @@ Default HF 14a config is set to:
     forcecl2 = 0 (auto)
     forcecl3 = 0 (auto)
     forcerats = 0 (auto)
+    magsafe = 0 (disabled)
+    polling_loop_annotation = {{0}, 0, 0, 0} (disabled)
 */
-static hf14a_config hf14aconfig = { 0, 0, 0, 0, 0 } ;
+static hf14a_config_t hf14aconfig = { 0, 0, 0, 0, 0, 0, {{0}, 0, 0, 0} };
 
+static iso14a_polling_parameters_t hf14a_polling_parameters = {
+    .frames = { {{ ISO14443A_CMD_WUPA }, 1, 7, 0 }},
+    .frame_count = 1,
+    .extra_timeout = 0
+};
 
-// Polling frames and configurations
-iso14a_polling_parameters_t WUPA_POLLING_PARAMETERS = {
-    .frames = { {{ ISO14443A_CMD_WUPA }, 1, 7, 0} },
-    .frame_count = 1,
-    .extra_timeout = 0,
-};
-iso14a_polling_parameters_t REQA_POLLING_PARAMETERS = {
-    .frames = { {{ ISO14443A_CMD_REQA }, 1, 7, 0} },
-    .frame_count = 1,
-    .extra_timeout = 0,
-};
 
 // parity isn't used much
 static uint8_t parity_array[MAX_PARITY_SIZE] = {0};
@@ -166,30 +190,39 @@ struct Crypto1State crypto1_state = {0, 0};
 
 void printHf14aConfig(void) {
     DbpString(_CYAN_("HF 14a config"));
-    Dbprintf("  [a] Anticol override.... %s%s%s",
+    Dbprintf("  [a] Anticol override........... %s%s%s",
              (hf14aconfig.forceanticol == 0) ? _GREEN_("std") "    ( follow standard )" : "",
              (hf14aconfig.forceanticol == 1) ? _RED_("force") " ( always do anticol )" : "",
              (hf14aconfig.forceanticol == 2) ? _RED_("skip") "   ( always skip anticol )" : ""
             );
-    Dbprintf("  [b] BCC override........ %s%s%s",
+    Dbprintf("  [b] BCC override............... %s%s%s",
              (hf14aconfig.forcebcc == 0) ? _GREEN_("std") "    ( follow standard )" : "",
              (hf14aconfig.forcebcc == 1) ? _RED_("fix") "    ( fix bad BCC )" : "",
              (hf14aconfig.forcebcc == 2) ? _RED_("ignore") " ( ignore bad BCC, always use card BCC )" : ""
             );
-    Dbprintf("  [2] CL2 override........ %s%s%s",
+    Dbprintf("  [2] CL2 override............... %s%s%s",
              (hf14aconfig.forcecl2 == 0) ? _GREEN_("std") "    ( follow standard )" : "",
              (hf14aconfig.forcecl2 == 1) ? _RED_("force") "  ( always do CL2 )" : "",
              (hf14aconfig.forcecl2 == 2) ? _RED_("skip") "   ( always skip CL2 )" : ""
             );
-    Dbprintf("  [3] CL3 override........ %s%s%s",
+    Dbprintf("  [3] CL3 override............... %s%s%s",
              (hf14aconfig.forcecl3 == 0) ? _GREEN_("std") "    ( follow standard )" : "",
              (hf14aconfig.forcecl3 == 1) ? _RED_("force") "  ( always do CL3 )" : "",
              (hf14aconfig.forcecl3 == 2) ? _RED_("skip") "   ( always skip CL3 )" : ""
             );
-    Dbprintf("  [r] RATS override....... %s%s%s",
+    Dbprintf("  [r] RATS override.............. %s%s%s",
              (hf14aconfig.forcerats == 0) ? _GREEN_("std") "    ( follow standard )" : "",
              (hf14aconfig.forcerats == 1) ? _RED_("force") "  ( always do RATS )" : "",
              (hf14aconfig.forcerats == 2) ? _RED_("skip") "   ( always skip RATS )" : ""
+            );
+    Dbprintf("  [m] Magsafe polling............ %s",
+             (hf14aconfig.magsafe == 1) ? _GREEN_("enabled") : _YELLOW_("disabled")
+            );
+    Dbprintf("  [p] Polling loop annotation.... %s %*D",
+             (hf14aconfig.polling_loop_annotation.frame_length <= 0) ? _YELLOW_("disabled") : _GREEN_("enabled"),
+             hf14aconfig.polling_loop_annotation.frame_length,
+             hf14aconfig.polling_loop_annotation.frame,
+             ""
             );
 }
 
@@ -201,21 +234,64 @@ void printHf14aConfig(void) {
  * @brief setSamplingConfig
  * @param sc
  */
-void setHf14aConfig(const hf14a_config *hc) {
-
-    if ((hc->forceanticol >= 0) && (hc->forceanticol <= 2))
+void setHf14aConfig(const hf14a_config_t *hc) {
+    if ((hc->forceanticol >= 0) && (hc->forceanticol <= 2)) {
         hf14aconfig.forceanticol = hc->forceanticol;
-    if ((hc->forcebcc >= 0) && (hc->forcebcc <= 2))
+    }
+
+    if ((hc->forcebcc >= 0) && (hc->forcebcc <= 2)) {
         hf14aconfig.forcebcc = hc->forcebcc;
-    if ((hc->forcecl2 >= 0) && (hc->forcecl2 <= 2))
+    }
+
+    if ((hc->forcecl2 >= 0) && (hc->forcecl2 <= 2)) {
         hf14aconfig.forcecl2 = hc->forcecl2;
-    if ((hc->forcecl3 >= 0) && (hc->forcecl3 <= 2))
+    }
+
+    if ((hc->forcecl3 >= 0) && (hc->forcecl3 <= 2)) {
         hf14aconfig.forcecl3 = hc->forcecl3;
-    if ((hc->forcerats >= 0) && (hc->forcerats <= 2))
+    }
+
+    if ((hc->forcerats >= 0) && (hc->forcerats <= 2)) {
         hf14aconfig.forcerats = hc->forcerats;
+    }
+
+    if ((hc->magsafe >= 0) && (hc->magsafe <= 1)) {
+        hf14aconfig.magsafe = hc->magsafe;
+    }
+
+    if (hc->polling_loop_annotation.frame_length >= 0) {
+        memcpy(&hf14aconfig.polling_loop_annotation, &hc->polling_loop_annotation, sizeof(iso14a_polling_frame_t));
+    }
+
+    // iceman:  Somehow I think we should memcpy WUPA_CMD and all other hf14a_polling_parameters.frames[xxx] assignments
+    // right now we are assigning...
+
+    // Derive polling loop configuration based on 14a config
+    hf14a_polling_parameters.frames[0] = WUPA_CMD_FRAME;
+    hf14a_polling_parameters.frame_count = 1;
+    hf14a_polling_parameters.extra_timeout = 0;
+
+    if (hf14aconfig.magsafe == 1) {
+
+        for (int i = 0; i < ARRAYLEN(MAGWUPA_CMD_FRAMES); i++) {
+            if (hf14a_polling_parameters.frame_count < ARRAYLEN(hf14a_polling_parameters.frames) - 1) {
+                hf14a_polling_parameters.frames[hf14a_polling_parameters.frame_count] = MAGWUPA_CMD_FRAMES[i];
+                hf14a_polling_parameters.frame_count++;
+            }
+        }
+    }
+
+    if (hf14aconfig.polling_loop_annotation.frame_length > 0) {
+
+        if (hf14a_polling_parameters.frame_count < ARRAYLEN(hf14a_polling_parameters.frames) - 1) {
+            hf14a_polling_parameters.frames[hf14a_polling_parameters.frame_count] = hf14aconfig.polling_loop_annotation;
+            hf14a_polling_parameters.frame_count++;
+        }
+        hf14a_polling_parameters.extra_timeout = 250;
+    }
 }
 
-hf14a_config *getHf14aConfig(void) {
+hf14a_config_t *getHf14aConfig(void) {
     return &hf14aconfig;
 }
 
@@ -592,7 +668,7 @@ RAMFUNC int ManchesterDecoding(uint8_t bit, uint16_t offset, uint32_t non_real_t
 
                 if (Demod.bitCount > 0) {                               // there are some remaining data bits
                     Demod.shiftReg >>= (9 - Demod.bitCount);            // right align the decoded bits
-                    Demod.output[Demod.len++] = Demod.shiftReg & 0xff;  // and add them to the output
+                    Demod.output[Demod.len++] = (Demod.shiftReg & 0xff);  // and add them to the output
                     Demod.parityBits <<= 1;                             // add a (void) parity bit
                     Demod.parityBits <<= (8 - (Demod.len & 0x0007));    // left align remaining parity bits
                     Demod.parity[Demod.parityLen++] = Demod.parityBits; // and store them
@@ -729,12 +805,12 @@ void RAMFUNC SniffIso14443a(uint8_t param) {
     set_tracing(true);
 
     // The command (reader -> tag) that we're receiving.
-    uint8_t *receivedCmd = BigBuf_malloc(MAX_FRAME_SIZE);
-    uint8_t *receivedCmdPar = BigBuf_malloc(MAX_PARITY_SIZE);
+    uint8_t *receivedCmd = BigBuf_calloc(MAX_FRAME_SIZE);
+    uint8_t *receivedCmdPar = BigBuf_calloc(MAX_PARITY_SIZE);
 
     // The response (tag -> reader) that we're receiving.
-    uint8_t *receivedResp = BigBuf_malloc(MAX_FRAME_SIZE);
-    uint8_t *receivedRespPar = BigBuf_malloc(MAX_PARITY_SIZE);
+    uint8_t *receivedResp = BigBuf_calloc(MAX_FRAME_SIZE);
+    uint8_t *receivedRespPar = BigBuf_calloc(MAX_PARITY_SIZE);
 
     uint8_t previous_data = 0;
     int maxDataLen = 0, dataLen;
@@ -1726,24 +1802,48 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *useruid, uin
             }
             p_response = NULL;
         } else if (receivedCmd[0] == MIFARE_ULC_WRITE && len == 8 && (tagType == 2 || tagType == 7)) {        // Received a WRITE
+
+            p_response = NULL;
+
             // cmd + block + 4 bytes data + 2 bytes crc
             if (CheckCrc14A(receivedCmd, len)) {
 
                 uint8_t block = receivedCmd[1];
+
+                // sanity checks
                 if (block > pages) {
-                    // send NACK 0x0 == invalid argument
+                    // send NACK 0x0, invalid argument
                     EmSend4bit(CARD_NACK_IV);
-                } else {
-                    // first blocks of emu are header
-                    emlSetMem_xt(&receivedCmd[2], block + (MFU_DUMP_PREFIX_LENGTH / 4), 1, 4);
-                    // send ACK
-                    EmSend4bit(CARD_ACK);
+                    goto jump;
                 }
+
+                // OTP sanity check
+                if (block == 0x03) {
+
+                    uint8_t orig[4] = {0};
+                    emlGet(orig, 12 + MFU_DUMP_PREFIX_LENGTH, 4);
+
+                    bool risky = false;
+                    for (int i = 0; i < 4; i++) {
+                        risky |= (orig[i] & ~receivedCmd[2 + i]);
+                    }
+
+                    if (risky) {
+                        EmSend4bit(CARD_NACK_IV);
+                        goto jump;
+                    }
+                }
+
+                // first blocks of emu are header
+                emlSetMem_xt(&receivedCmd[2], block + (MFU_DUMP_PREFIX_LENGTH / 4), 1, 4);
+                // send ACK
+                EmSend4bit(CARD_ACK);
+
             } else {
                 // send NACK 0x1 == crc/parity error
                 EmSend4bit(CARD_NACK_PA);
             }
-            p_response = NULL;
+            goto jump;
         } else if (receivedCmd[0] == MIFARE_ULC_COMP_WRITE && len == 4 && (tagType == 2 || tagType == 7)) {
             // cmd + block + 2 bytes crc
             if (CheckCrc14A(receivedCmd, len)) {
@@ -1990,6 +2090,7 @@ void SimulateIso14443aTag(uint8_t tagType, uint16_t flags, uint8_t *useruid, uin
 
         // Count number of other messages after a halt
 //        if (order != ORDER_WUPA && lastorder == ORDER_HALTED) { happened2++; }
+jump:
 
         cmdsRecvd++;
 
@@ -2054,13 +2155,16 @@ static void TransmitFor14443a(const uint8_t *cmd, uint16_t len, uint32_t *timing
     FpgaWriteConfWord(FPGA_MAJOR_MODE_HF_ISO14443A | FPGA_HF_ISO14443A_READER_MOD);
 
     if (timing) {
-        if (*timing == 0)                                        // Measure time
+
+        if (*timing == 0) {                                       // Measure time
             *timing = (GetCountSspClk() + 8) & 0xfffffff8;
-        else
+        } else {
             PrepareDelayedTransfer(*timing & 0x00000007);        // Delay transfer (fine tuning - up to 7 MF clock ticks)
+        }
 
         while (GetCountSspClk() < (*timing & 0xfffffff8)) {};    // Delay transfer (multiple of 8 MF clock ticks)
         LastTimeProxToAirStart = *timing;
+
     } else {
 
         uint32_t ThisTransferTime = 0;
@@ -2379,7 +2483,10 @@ int EmSendCmdEx(uint8_t *resp, uint16_t respLen, bool collision) {
 }
 
 int EmSendPrecompiledCmd(tag_response_info_t *p_response) {
-    if (p_response == NULL) return 0;
+    if (p_response  == NULL) {
+        return 0;
+    }
+
     int ret = EmSendCmd14443aRaw(p_response->modulation, p_response->modulation_n);
     // do the tracing for the previous reader request and this tag answer:
     GetParity(p_response->response, p_response->response_n, parity_array);
@@ -2518,8 +2625,7 @@ static int GetIso14443aAnswerFromTag(uint8_t *receivedResponse, uint16_t rec_max
     return false;
 }
 
-void ReaderTransmitBitsPar(uint8_t *frame, uint16_t bits, uint8_t *par, uint32_t *timing) {
-
+void ReaderTransmitBitsPar(const uint8_t *frame, uint16_t bits, uint8_t *par, uint32_t *timing) {
     CodeIso14443aBitsAsReaderPar(frame, bits, par);
     // Send command to tag
     tosend_t *ts = get_tosend();
@@ -2529,17 +2635,17 @@ void ReaderTransmitBitsPar(uint8_t *frame, uint16_t bits, uint8_t *par, uint32_t
     LogTrace(frame, nbytes(bits), (LastTimeProxToAirStart << 4) + DELAY_ARM2AIR_AS_READER, ((LastTimeProxToAirStart + LastProxToAirDuration) << 4) + DELAY_ARM2AIR_AS_READER, par, true);
 }
 
-void ReaderTransmitPar(uint8_t *frame, uint16_t len, uint8_t *par, uint32_t *timing) {
+void ReaderTransmitPar(const uint8_t *frame, uint16_t len, uint8_t *par, uint32_t *timing) {
     ReaderTransmitBitsPar(frame, len * 8, par, timing);
 }
 
-static void ReaderTransmitBits(uint8_t *frame, uint16_t len, uint32_t *timing) {
+static void ReaderTransmitBits(const uint8_t *frame, uint16_t len, uint32_t *timing) {
     // Generate parity and redirect
     GetParity(frame, len / 8, parity_array);
     ReaderTransmitBitsPar(frame, len, parity_array, timing);
 }
 
-void ReaderTransmit(uint8_t *frame, uint16_t len, uint32_t *timing) {
+void ReaderTransmit(const uint8_t *frame, uint16_t len, uint32_t *timing) {
     // Generate parity and redirect
     GetParity(frame, len, parity_array);
     ReaderTransmitBitsPar(frame, len * 8, parity_array, timing);
@@ -2577,9 +2683,9 @@ void iso14443a_antifuzz(uint32_t flags) {
     int len = 0;
 
     // allocate buffers:
-    uint8_t *received = BigBuf_malloc(MAX_FRAME_SIZE);
-    uint8_t *receivedPar = BigBuf_malloc(MAX_PARITY_SIZE);
-    uint8_t *resp = BigBuf_malloc(20);
+    uint8_t *received = BigBuf_calloc(MAX_FRAME_SIZE);
+    uint8_t *receivedPar = BigBuf_calloc(MAX_PARITY_SIZE);
+    uint8_t *resp = BigBuf_calloc(20);
 
     memset(received, 0x00, MAX_FRAME_SIZE);
     memset(received, 0x00, MAX_PARITY_SIZE);
@@ -2666,30 +2772,40 @@ static void iso14a_set_ATS_times(const uint8_t *ats) {
 }
 
 
-static int GetATQA(uint8_t *resp, uint16_t resp_len, uint8_t *resp_par, iso14a_polling_parameters_t *polling_parameters) {
-#define WUPA_RETRY_TIMEOUT 10
+static int GetATQA(uint8_t *resp, uint16_t resp_len, uint8_t *resp_par, const iso14a_polling_parameters_t *polling_parameters) {
+#define RETRY_TIMEOUT 10
 
     uint32_t save_iso14a_timeout = iso14a_get_timeout();
     iso14a_set_timeout(1236 / 128 + 1);  // response to WUPA is expected at exactly 1236/fc. No need to wait longer.
 
+    // refactored to use local pointer,  now no modification of polling_parameters pointer is done
+    // I don't think the intention was to modify polling_parameters when sending in WUPA_POLLING_PARAMETERS etc.
+    // Modify polling_params,  if null use default values.
+    iso14a_polling_parameters_t p;
+    memcpy(&p, (uint8_t *)polling_parameters, sizeof(iso14a_polling_parameters_t));
+
+    if (polling_parameters == NULL) {
+        memcpy(&p, (uint8_t *)&hf14a_polling_parameters, sizeof(iso14a_polling_parameters_t));
+    }
+
     bool first_try = true;
-    uint32_t retry_timeout = WUPA_RETRY_TIMEOUT * polling_parameters->frame_count + polling_parameters->extra_timeout;
-    uint32_t start_time = 0;
     int len;
+    uint32_t retry_timeout = ((RETRY_TIMEOUT * p.frame_count) + p.extra_timeout);
+    uint32_t start_time = 0;
+    uint8_t curr = 0;
 
-    uint8_t current_frame = 0;
-
+    // Use the temporary polling parameters
     do {
-        iso14a_polling_frame_t *frame_parameters = &polling_parameters->frames[current_frame];
+        iso14a_polling_frame_t *frp = &p.frames[curr];
 
-        if (frame_parameters->last_byte_bits == 8) {
-            ReaderTransmit(frame_parameters->frame, frame_parameters->frame_length, NULL);
+        if (frp->last_byte_bits == 8) {
+            ReaderTransmit(frp->frame, frp->frame_length, NULL);
         } else {
-            ReaderTransmitBitsPar(frame_parameters->frame, frame_parameters->last_byte_bits, NULL, NULL);
+            ReaderTransmitBitsPar(frp->frame, frp->last_byte_bits, NULL, NULL);
         }
 
-        if (frame_parameters->extra_delay) {
-            SpinDelay(frame_parameters->extra_delay);
+        if (frp->extra_delay) {
+            SpinDelay(frp->extra_delay);
         }
 
         // Receive the ATQA
@@ -2698,12 +2814,12 @@ static int GetATQA(uint8_t *resp, uint16_t resp_len, uint8_t *resp_par, iso14a_p
         // We set the start_time here otherwise in some cases we miss the window and only ever try once
         if (first_try) {
             start_time = GetTickCount();
+            first_try = false;
         }
 
-        first_try = false;
-
         // Go over frame configurations, loop back when we reach the end
-        current_frame = current_frame < (polling_parameters->frame_count - 1) ? current_frame + 1 : 0;
+        curr = (curr < (p.frame_count - 1)) ? curr + 1 : 0;
+
     } while (len == 0 && GetTickCountDelta(start_time) <= retry_timeout);
 
     iso14a_set_timeout(save_iso14a_timeout);
@@ -2712,7 +2828,7 @@ static int GetATQA(uint8_t *resp, uint16_t resp_len, uint8_t *resp_par, iso14a_p
 
 
 int iso14443a_select_card(uint8_t *uid_ptr, iso14a_card_select_t *p_card, uint32_t *cuid_ptr, bool anticollision, uint8_t num_cascades, bool no_rats) {
-    return iso14443a_select_cardEx(uid_ptr, p_card, cuid_ptr, anticollision, num_cascades, no_rats, &WUPA_POLLING_PARAMETERS);
+    return iso14443a_select_cardEx(uid_ptr, p_card, cuid_ptr, anticollision, num_cascades, no_rats, NULL);
 }
 
 
@@ -2985,7 +3101,7 @@ int iso14443a_fast_select_card(uint8_t *uid_ptr, uint8_t num_cascades) {
     uint8_t sak = 0x04; // cascade uid
     int cascade_level = 1;
 
-    if (GetATQA(resp, sizeof(resp), resp_par, &WUPA_POLLING_PARAMETERS) == 0) {
+    if (GetATQA(resp, sizeof(resp), resp_par, NULL) == 0) {
         return 0;
     }
 
@@ -3101,49 +3217,64 @@ int iso14_apdu(uint8_t *cmd, uint16_t cmd_len, bool send_chaining, void *data, u
     size_t len = ReaderReceive(data, data_len, parity_array);
     uint8_t *data_bytes = (uint8_t *) data;
 
-    if (!len) {
+    if (len == 0) {
         BigBuf_free();
         return 0; // DATA LINK ERROR
-    } else {
-        // S-Block WTX
-        while (len && ((data_bytes[0] & 0xF2) == 0xF2)) {
-            uint32_t save_iso14a_timeout = iso14a_get_timeout();
-            // temporarily increase timeout
-            iso14a_set_timeout(MAX((data_bytes[1] & 0x3f) * save_iso14a_timeout, MAX_ISO14A_TIMEOUT));
-            // Transmit WTX back
-            // byte1 - WTXM [1..59]. command FWT=FWT*WTXM
-            data_bytes[1] = data_bytes[1] & 0x3f; // 2 high bits mandatory set to 0b
-            // now need to fix CRC.
-            AddCrc14A(data_bytes, len - 2);
-            // transmit S-Block
-            ReaderTransmit(data_bytes, len, NULL);
-            // retrieve the result again (with increased timeout)
-            len = ReaderReceive(data, data_len, parity_array);
-            data_bytes = data;
-            // restore timeout
-            iso14a_set_timeout(save_iso14a_timeout);
-        }
+    }
 
-        // if we received an I- or R(ACK)-Block with a block number equal to the
-        // current block number, toggle the current block number
-        if (len >= 3 // PCB+CRC = 3 bytes
-                && ((data_bytes[0] & 0xC0) == 0 // I-Block
-                    || (data_bytes[0] & 0xD0) == 0x80) // R-Block with ACK bit set to 0
-                && (data_bytes[0] & 0x01) == iso14_pcb_blocknum) { // equal block numbers
-            iso14_pcb_blocknum ^= 1;
-        }
+    uint32_t save_iso14a_timeout = iso14a_get_timeout();
 
-        // if we received I-block with chaining we need to send ACK and receive another block of data
-        if (res) {
-            *res = data_bytes[0];
-        }
+    // S-Block WTX
+    while (len && ((data_bytes[0] & 0xF2) == 0xF2)) {
 
-        // crc check
-        if (len >= 3 && !CheckCrc14A(data_bytes, len)) {
+        if (BUTTON_PRESS() || data_available()) {
             BigBuf_free();
-            return -1;
+            return -3;
         }
 
+        // Inform client of WTX of timeout in ms
+        // 38ms == MAX_ISO14A_TIMEOUT
+        send_wtx(38);
+
+        // byte1 - WTXM [1..59]. command FWT=FWT*WTXM
+        data_bytes[1] &= 0x3F; // 2 high bits mandatory set to 0b
+
+        // temporarily increase timeout
+        // field cycles,  1/1356000
+        // MAX_ISO14A_TIMEOUT ==  524288 / 13560000
+        // typically 8192 / 13560000
+        iso14a_set_timeout(MAX(data_bytes[1] * save_iso14a_timeout, MAX_ISO14A_TIMEOUT));
+
+        // Transmit WTX back
+        AddCrc14A(data_bytes, len - 2);
+        ReaderTransmit(data_bytes, len, NULL);
+
+        // retrieve the result again (with increased timeout)
+        len = ReaderReceive(data_bytes, data_len, parity_array);
+
+    }
+
+    // restore timeout
+    iso14a_set_timeout(save_iso14a_timeout);
+
+    // if we received an I- or R(ACK)-Block with a block number equal to the
+    // current block number, toggle the current block number
+    if (len >= 3 // PCB+CRC = 3 bytes
+            && ((data_bytes[0] & 0xC0) == 0 // I-Block
+                || (data_bytes[0] & 0xD0) == 0x80) // R-Block with ACK bit set to 0
+            && (data_bytes[0] & 0x01) == iso14_pcb_blocknum) { // equal block numbers
+        iso14_pcb_blocknum ^= 1;
+    }
+
+    // if we received I-block with chaining we need to send ACK and receive another block of data
+    if (res) {
+        *res = data_bytes[0];
+    }
+
+    // crc check
+    if (len >= 3 && !CheckCrc14A(data_bytes, len)) {
+        BigBuf_free();
+        return -1;
     }
 
     if (len) {
@@ -3203,7 +3334,7 @@ void ReaderIso14443a(PacketCommandNG *c) {
                        true,
                        0,
                        ((param & ISO14A_NO_RATS) == ISO14A_NO_RATS),
-                       ((param & ISO14A_USE_CUSTOM_POLLING) == ISO14A_USE_CUSTOM_POLLING) ? (iso14a_polling_parameters_t *)cmd : &WUPA_POLLING_PARAMETERS
+                       ((param & ISO14A_USE_CUSTOM_POLLING) == ISO14A_USE_CUSTOM_POLLING) ? (iso14a_polling_parameters_t *)cmd : NULL
                    );
             // TODO: Improve by adding a cmd parser pointer and moving it by struct length to allow combining data with polling params
             FpgaDisableTracing();
@@ -3226,7 +3357,10 @@ void ReaderIso14443a(PacketCommandNG *c) {
     }
 
     if ((param & ISO14A_APDU) == ISO14A_APDU) {
-        uint8_t res;
+
+        FpgaDisableTracing();
+
+        uint8_t res = 0;
         arg0 = iso14_apdu(
                    cmd,
                    len,
@@ -3235,7 +3369,6 @@ void ReaderIso14443a(PacketCommandNG *c) {
                    sizeof(buf),
                    &res
                );
-        FpgaDisableTracing();
 
         reply_mix(CMD_ACK, arg0, res, 0, buf, sizeof(buf));
     }
@@ -3356,8 +3489,9 @@ void ReaderIso14443a(PacketCommandNG *c) {
         }
     }
 CMD_DONE:
-    if ((param & ISO14A_REQUEST_TRIGGER) == ISO14A_REQUEST_TRIGGER)
+    if ((param & ISO14A_REQUEST_TRIGGER) == ISO14A_REQUEST_TRIGGER) {
         iso14a_set_trigger(false);
+    }
 
     if ((param & ISO14A_SET_TIMEOUT) == ISO14A_SET_TIMEOUT) {
         iso14a_set_timeout(save_iso14a_timeout);
@@ -3936,9 +4070,7 @@ void DetectNACKbug(void) {
     // i  =  number of authentications sent.  Not always 256, since we are trying to sync but close to it.
     FpgaDisableTracing();
 
-    uint8_t *data = BigBuf_malloc(4);
-    data[0] = isOK;
-    data[1] = num_nacks;
+    uint8_t data[4] = {isOK, num_nacks, 0, 0};
     num_to_bytes(i, 2, data + 2);
     reply_ng(CMD_HF_MIFARE_NACK_DETECT, status, data, 4);
 
@@ -3986,12 +4118,14 @@ void SimulateIso14443aTagAID(uint8_t tagType, uint16_t flags, uint8_t *uid,
         reply_ng(CMD_HF_MIFARE_SIMULATE, PM3_EMALLOC, NULL, 0);
         return;
     }
+
     uint8_t *dynamic_modulation_buffer2 = BigBuf_calloc(DYNAMIC_MODULATION_BUFFER2_SIZE);
     if (dynamic_modulation_buffer2 == NULL) {
         BigBuf_free_keep_EM();
         reply_ng(CMD_HF_MIFARE_SIMULATE, PM3_EMALLOC, NULL, 0);
         return;
     }
+
     tag_response_info_t dynamic_response_info = {
         .response = dynamic_response_buffer2,
         .response_n = 0,
@@ -4142,7 +4276,6 @@ void SimulateIso14443aTagAID(uint8_t tagType, uint16_t flags, uint8_t *uid,
                             dynamic_response_info.response_n = 3 + offset;
                         }
                     }
-                    break;
                 }
                 break;
 

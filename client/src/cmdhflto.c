@@ -131,8 +131,8 @@ static int lto_send_cmd_raw(uint8_t *cmd, uint8_t len, uint8_t *response, uint16
     SendCommandMIX(CMD_HF_ISO14443A_READER, arg0, arg1, 0, cmd, len);
     PacketResponseNG resp;
 
-    if (!WaitForResponseTimeout(CMD_ACK, &resp, 1500)) {
-        if (verbose) PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+    if (WaitForResponseTimeout(CMD_ACK, &resp, 1500) == false) {
+        if (verbose) PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -682,7 +682,7 @@ static int CmdHfLTOWriteBlock(const char *Cmd) {
 
     int res = wrblLTO(blk, block_data, true);
     if (res == PM3_SUCCESS)
-        PrintAndLogEx(HINT, "Try use 'hf lto rdbl' for verification");
+        PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf lto rdbl") "` to verify");
 
     return res;
 }
@@ -755,8 +755,8 @@ static int CmdHfLTODump(const char *Cmd) {
 
     uint32_t dump_len = CM_MEM_MAX_SIZE;
     uint8_t *dump = calloc(dump_len, sizeof(uint8_t));
-    if (!dump) {
-        PrintAndLogEx(ERR, "error, cannot allocate memory");
+    if (dump == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 

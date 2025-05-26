@@ -54,7 +54,7 @@ static int topaz_send_cmd_raw(uint8_t *cmd, uint8_t len, uint8_t *response, uint
     SendCommandMIX(CMD_HF_ISO14443A_READER, ISO14A_RAW | ISO14A_NO_DISCONNECT | ISO14A_TOPAZMODE | ISO14A_NO_RATS, len, 0, cmd, len);
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_ACK, &resp, 1500) == false) {
-        if (verbose) PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        if (verbose) PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -362,6 +362,7 @@ static int topaz_set_cc_dynamic(const uint8_t *data) {
     topaz_tag.size = memsize;
     topaz_tag.dynamic_memory = calloc(memsize - TOPAZ_STATIC_MEMORY, sizeof(uint8_t));
     if (topaz_tag.dynamic_memory == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     return PM3_SUCCESS;
@@ -542,11 +543,19 @@ static void topaz_print_control_TLVs(uint8_t *memory) {
 
             if (old == NULL) {
                 new = topaz_tag.dynamic_lock_areas = (dynamic_lock_area_t *) calloc(sizeof(dynamic_lock_area_t), sizeof(uint8_t));
+                if (new == NULL) {
+                    PrintAndLogEx(WARNING, "Failed to allocate memory");
+                    return;
+                }
             } else {
                 while (old->next != NULL) {
                     old = old->next;
                 }
                 new = old->next = (dynamic_lock_area_t *) calloc(sizeof(dynamic_lock_area_t), sizeof(uint8_t));
+                if (new == NULL) {
+                    PrintAndLogEx(WARNING, "Failed to allocate memory");
+                    return;
+                }
             }
             new->next = NULL;
 
@@ -837,8 +846,8 @@ static int CmdHFTopazSniff(const char *Cmd) {
     PacketResponseNG resp;
     WaitForResponse(CMD_HF_ISO14443A_SNIFF, &resp);
     PrintAndLogEx(INFO, "Done!");
-    PrintAndLogEx(HINT, "Try `" _YELLOW_("hf topaz list")"` to view captured tracelog");
-    PrintAndLogEx(HINT, "Try `" _YELLOW_("trace save -h") "` to save tracelog for later analysing");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf topaz list")"` to view captured tracelog");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("trace save -h") "` to save tracelog for later analysing");
     return PM3_SUCCESS;
 }
 
@@ -1052,7 +1061,7 @@ static int CmdHFTopazWrBl(const char *Cmd) {
 
     if (res == PM3_SUCCESS) {
         PrintAndLogEx(SUCCESS, "Write ( " _GREEN_("ok") " )");
-        PrintAndLogEx(HINT, "try `" _YELLOW_("hf topaz rdbl --blk %u") "` to verify", blockno);
+        PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf topaz rdbl --blk %u") "` to verify", blockno);
 
     } else {
         PrintAndLogEx(WARNING, "Write ( " _RED_("fail") " )");

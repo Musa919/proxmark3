@@ -459,11 +459,11 @@ static int mfdes_get_info(mfdes_info_res_t *info) {
 int desfire_print_signature(uint8_t *uid, uint8_t uidlen, uint8_t *signature, size_t signature_len) {
 
     if (uid == NULL) {
-        PrintAndLogEx(DEBUG, "UID=NULL");
+        PrintAndLogEx(DEBUG, "UID is NULL");
         return PM3_EINVARG;
     }
     if (signature == NULL) {
-        PrintAndLogEx(DEBUG, "SIGNATURE=NULL");
+        PrintAndLogEx(DEBUG, "SIGNATURE is NULL");
         return PM3_EINVARG;
     }
 
@@ -472,7 +472,9 @@ int desfire_print_signature(uint8_t *uid, uint8_t uidlen, uint8_t *signature, si
 }
 
 static void swap24(uint8_t *data) {
-    if (data == NULL) return;
+    if (data == NULL) {
+        return;
+    }
     uint8_t tmp = data[0];
     data[0] = data[2];
     data[2] = tmp;
@@ -1446,7 +1448,7 @@ static int CmdHF14aDesChk(const char *Cmd) {
         SendCommandMIX(CMD_HF_ISO14443A_READER, ISO14A_CONNECT, 0, 0, NULL, 0);
         PacketResponseNG resp;
         if (WaitForResponseTimeout(CMD_ACK, &resp, 2500) == false) {
-            PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+            PrintAndLogEx(WARNING, "timeout while waiting for reply");
             return PM3_ETIMEOUT;
         }
 
@@ -1831,7 +1833,7 @@ static int CmdHF14aDesMAD(const char *Cmd) {
 
     if ((PICCInfo.keySettings & (1 << 1)) == 0) {
         PrintAndLogEx(WARNING, "Directory list access with CMK... ( " _RED_("Enabled") " )");
-        PrintAndLogEx(HINT, "Try to read MAD with Card Master Key (CMK)");
+        PrintAndLogEx(HINT, "Hint: Try to read MAD with Card Master Key (CMK)");
     }
 
     PrintAndLogEx(SUCCESS, "----------------------------------------- " _CYAN_("MAD") " ------------------------------------------");
@@ -2131,6 +2133,9 @@ static int CmdHF14ADesBruteApps(const char *Cmd) {
         startAid[1] = 0x00;
         startAid[2] = 0x0F;
     }
+
+    reverse_array(startAid, 3);
+    reverse_array(endAid, 3);
     uint32_t idStart = DesfireAIDByteToUint(startAid);
     uint32_t idEnd = DesfireAIDByteToUint(endAid);
     if (idStart > idEnd) {
@@ -2559,7 +2564,7 @@ static int CmdHF14ADesCreateApp(const char *Cmd) {
         arg_str0(NULL, "rawdata", "<hex>", "Raw data that sends to command"),
         arg_str0(NULL, "aid",     "<hex>", "Application ID for create. Mandatory. (3 hex bytes, big endian)"),
         arg_str0(NULL, "fid",     "<hex>", "ISO file ID. Forbidden values: 0000 3F00, 3FFF, FFFF. (2 hex bytes, big endian)"),
-        arg_str0(NULL, "dfname",  "<string>", "ISO DF Name (1..16 chars)"),
+        arg_str0(NULL, "dfname",  "<str>", "ISO DF Name (1..16 chars)"),
         arg_str0(NULL, "dfhex",   "<hex>", "ISO DF Name as hex (1..16 bytes)"),
         arg_str0(NULL, "ks1",     "<hex>", "Key settings 1 (1 hex byte). Application Master Key Settings (def: 0x0F)"),
         arg_str0(NULL, "ks2",     "<hex>", "Key settings 2 (1 hex byte). (def: 0x0E)"),
@@ -4850,7 +4855,7 @@ static int DesfileReadFileAndPrint(DesfireContext_t *dctx,
 
     uint8_t *resp  = calloc(DESFIRE_BUFFER_SIZE, 1);
     if (resp == NULL) {
-        PrintAndLogEx(ERR, "Desfire calloc " _RED_("error"));
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         DropField();
         return PM3_EMALLOC;
     }

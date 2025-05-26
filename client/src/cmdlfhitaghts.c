@@ -36,6 +36,84 @@
 
 static int CmdHelp(const char *Cmd);
 
+void annotateHitagS(char *exp, size_t size, const uint8_t *cmd, uint8_t nbits, bool is_response) {
+    size_t exp_len = 0;
+    uint8_t command = 0;
+
+    if (is_response) {
+        // Handle responses
+        if (nbits == 32) {
+            exp_len = snprintf(exp, size, "UID: [%02X%02X%02X%02X]", cmd[0], cmd[1], cmd[2], cmd[3]);
+        } else if (nbits == 40) {
+            exp_len = snprintf(exp, size, "Data");
+        }
+    } else if (nbits >= 5) {
+        concatbits(&command, 0, cmd, 0, 5, false);
+
+        if (nbits == 5) {
+            concatbits(&command, 0, cmd, 0, 5, false);
+
+            switch (command) {
+                case HITAGS_UID_REQ_STD:
+                    exp_len += snprintf(exp + exp_len, size - exp_len, "UID Request (Standard 00110)");
+                    break;
+                case HITAGS_UID_REQ_ADV1:
+                    exp_len += snprintf(exp + exp_len, size - exp_len, "UID Request (Advanced 11000)");
+                    break;
+                case HITAGS_UID_REQ_ADV2:
+                    exp_len += snprintf(exp + exp_len, size - exp_len, "UID Request (Advanced 11001)");
+                    break;
+                case HITAGS_UID_REQ_FADV:
+                    exp_len += snprintf(exp + exp_len, size - exp_len, "UID Request (Fast Advanced 11010)");
+                    break;
+            }
+        } else if (nbits == 4 + 8 + 8) {
+            concatbits(&command, 0, cmd, 0, 4, false);
+
+            if (command == HITAGS_READ_PAGE) {
+                exp_len += snprintf(exp + exp_len, size - exp_len, "READ");
+            } else if (command == HITAGS_WRITE_PAGE) {
+                exp_len += snprintf(exp + exp_len, size - exp_len, "WRITE");
+            } else if (command == HITAGS_READ_BLOCK) {
+                exp_len += snprintf(exp + exp_len, size - exp_len, "READ_BLOCK");
+            } else if (command == HITAGS_WRITE_BLOCK) {
+                exp_len += snprintf(exp + exp_len, size - exp_len, "WRITE_BLOCK");
+            } else if (command == HITAGS_QUIET) {
+                exp_len += snprintf(exp + exp_len, size - exp_len, "QUIET");
+            }
+            // Hitag 1 commands
+            else if (command == HITAG1_RDCPAGE) {
+                exp_len += snprintf(exp + exp_len, size - exp_len, "RDCPAGE");
+            } else if (command == HITAG1_RDCBLK) {
+                exp_len += snprintf(exp + exp_len, size - exp_len, "RDCBLK");
+            } else if (command == HITAG1_WRCPAGE) {
+                exp_len += snprintf(exp + exp_len, size - exp_len, "WRCPAGE");
+            } else if (command == HITAG1_WRCBLK) {
+                exp_len += snprintf(exp + exp_len, size - exp_len, "WRCBLK");
+            } else {
+                exp_len += snprintf(exp + exp_len, size - exp_len, "Unknown (%02X)", command);
+            }
+
+            uint8_t page = 0;
+            concatbits(&page, 0, cmd, 5, 8, false);
+            exp_len += snprintf(exp + exp_len, size - exp_len, " Page: %d", page);
+        } else if (nbits == 32 + 8) {
+            concatbits(&command, 0, cmd, 0, 5, false);
+            exp_len += snprintf(exp + exp_len, size - exp_len, "Data");
+        } else if (nbits == 5 + 32 + 8 || nbits == 5 + 32 + 1 + 8) {
+            concatbits(&command, 0, cmd, 0, 5, false);
+
+            if (command == HITAGS_SELECT) {
+                uint8_t uid[4] = {0};
+                concatbits(uid, 0, cmd, 5, 32, false);
+                exp_len = snprintf(exp, size, "SELECT UID: %02X%02X%02X%02X", uid[0], uid[1], uid[2], uid[3]);
+            }
+        }
+    } else {
+        exp_len = snprintf(exp, size, "Invalid command (too short)");
+    }
+}
+
 static const char *hts_get_type_str(uint32_t uid) {
     // source 1: https://www.scorpio-lk.com/downloads/Tango/HITAG_Classification.pdf
     // IDE Mark
@@ -83,12 +161,12 @@ static bool hts_get_uid(uint32_t *uid) {
     SendCommandNG(CMD_LF_HITAGS_UID, NULL, 0);
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_HITAGS_UID, &resp, 1500) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return false;
     }
 
     if (resp.status != PM3_SUCCESS) {
-        PrintAndLogEx(DEBUG, "DEBUG: Error - failed getting UID");
+        PrintAndLogEx(DEBUG, "DEBUG: Error - failed getting Hitag S UID");
         return false;
     }
 
@@ -253,14 +331,47 @@ static void print_error(int8_t reason) {
             break;
         default:
             // PM3_REASON_UNKNOWN
-            PrintAndLogEx(DEBUG, "DEBUG: Error - Hitag S failed");
+            PrintAndLogEx(FAILED, "Error - Hitag S failed");
     }
+}
+
+static void hitags_config_print(hitags_config_t config) {
+    PrintAndLogEx(INFO, " Memory type...... " _GREEN_("%s"),
+    (const char *[]) {"Hitag S 32", "Hitag S 256", "Hitag S 2048", "Unknown Hitag S/8211"}[config.MEMT]);
+
+    PrintAndLogEx(INFO, " Authenticaion.... %s", config.auth ? _YELLOW_("Yes") : "No");
+
+    PrintAndLogEx(INFO, " TTF coding....... %s",
+    config.RES3 ? "FSK  0=RF/10 1=RF/8" : (const char *[]) {"Manchester", "Biphase"}[config.TTFC]);
+
+    PrintAndLogEx(INFO, " TTF data rate.... %s",
+    (const char *[]) {"4 kBit", "8 kBit", "2 kBit", "2 kBit and Pigeon Race Standard"}[config.TTFDR]);
+
+    PrintAndLogEx(INFO, " TTF mode......... %s",
+    (const char *[]) {
+        "TTF Mode disabled (= RTF Mode)",
+        "Page 4, Page 5",
+        "Page 4, Page 5, Page 6, Page 7",
+        "Page 4",
+        "TTF Mode disabled (= RTF Mode)",
+        "Page 4, Page 5, Page 6",
+        "Page 4, Page 5, Page 6, Page 7, Page 8",
+        "Page 4, Page 5, Page 6, Page 7, Page 8, Page 9, Page 10, Page 11",
+    }[config.RES0 << 2 | config.TTFM]);
+
+    PrintAndLogEx(INFO, " Config locked.... %s", config.LCON ? _RED_("Yes") : _GREEN_("No"));
+    PrintAndLogEx(INFO, " Key/PWD locked... %s", config.LKP ? _RED_("Yes") : _GREEN_("No"));
 }
 
 static int CmdLFHitagSRead(const char *Cmd) {
     CLIParserContext *ctx;
     CLIParserInit(&ctx, "lf hitag hts rdbl",
-                  "Read Hitag S memory.\n\n"
+                  "Read Hitag S memory\n"
+                  "  Response protocol modes:\n"
+                  "   0 - Standard 00110\n"
+                  "   1 - Advanced 11000\n"
+                  "   2 - Advanced 11001\n"
+                  "   3 - Fast Advanced 11010 (def)\n\n"
                   "  Crypto mode: \n"
                   "    - key format ISK high + ISK low\n"
                   "    - default key 4F4E4D494B52 (ONMIKR)\n\n"
@@ -279,7 +390,7 @@ static int CmdLFHitagSRead(const char *Cmd) {
         arg_str0(NULL, "nrar", "<hex>", "nonce / answer writer, 8 hex bytes"),
         arg_lit0(NULL, "crypto", "crypto mode"),
         arg_str0("k", "key", "<hex>", "pwd or key, 4 or 6 hex bytes"),
-        arg_int0("m", "mode", "<dec>", "response protocol mode. 0 (Standard 00110), 1 (Advanced 11000), 2 (Advanced 11001), 3 (Fast Advanced 11010) (def: 3)"),
+        arg_int0("m", "mode", "<0|1|2|3>", "response protocol mode (def 3)"),
         arg_int0("p", "page", "<dec>", "page address to read from"),
         arg_int0("c", "count", "<dec>", "how many pages to read. '0' reads all pages up to the end page (def: 1)"),
         arg_param_end
@@ -314,7 +425,7 @@ static int CmdLFHitagSRead(const char *Cmd) {
 
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_HITAGS_READ, &resp, 2000) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         SendCommandNG(CMD_BREAK_LOOP, NULL, 0);
         return PM3_ETIMEOUT;
     }
@@ -501,7 +612,7 @@ static int CmdLFHitagSDump(const char *Cmd) {
 
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_HITAGS_READ, &resp, 5000) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -603,7 +714,7 @@ static int CmdLFHitagSRestore(const char *Cmd) {
     PacketResponseNG resp;
 
     if (WaitForResponseTimeout(CMD_LF_HITAGS_READ, &resp, 2000) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         free(dump);
         return PM3_ETIMEOUT;
     }
@@ -654,7 +765,7 @@ static int CmdLFHitagSRestore(const char *Cmd) {
         SendCommandNG(CMD_LF_HITAGS_WRITE, (uint8_t *)&packet, sizeof(packet));
 
         if (WaitForResponseTimeout(CMD_LF_HITAGS_WRITE, &resp, 2000) == false) {
-            PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+            PrintAndLogEx(WARNING, "timeout while waiting for reply");
             free(dump);
             return PM3_ETIMEOUT;
         }
@@ -727,7 +838,7 @@ static int CmdLFHitagSRestore(const char *Cmd) {
     SendCommandNG(CMD_LF_HITAGS_WRITE, (uint8_t *)&packet, sizeof(packet));
 
     if (WaitForResponseTimeout(CMD_LF_HITAGS_WRITE, &resp, 2000) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         free(dump);
         return PM3_ETIMEOUT;
     }
@@ -812,7 +923,7 @@ static int CmdLFHitagSWrite(const char *Cmd) {
 
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_HITAGS_WRITE, &resp, 4000) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -868,59 +979,28 @@ static int CmdLFHitagSSim(const char *Cmd) {
                   "Simulate Hitag S transponder\n"
                   "You need to `lf hitag hts eload` first",
                   "lf hitag hts sim\n"
-                  "lf hitag hts sim --82xx");
+                  "lf hitag hts sim --82xx\n"
+                  "lf hitag hts sim -t 30    -> set threshold to 30");
 
     void *argtable[] = {
         arg_param_begin,
         arg_lit0("8", "82xx", "simulate 8268/8310"),
+        arg_int0("t", "threshold", "<dec>", "set edge detect threshold (def: 127)"),
         arg_param_end
     };
     CLIExecWithReturn(ctx, Cmd, argtable, true);
 
     // bool use_82xx = arg_get_lit(ctx, 1);    // not implemented yet
+    int threshold = arg_get_int_def(ctx, 2, 127);
     CLIParserFree(ctx);
 
     clearCommandBuffer();
-    SendCommandMIX(CMD_LF_HITAGS_SIMULATE, false, 0, 0, NULL, 0);
+    SendCommandMIX(CMD_LF_HITAGS_SIMULATE, false, threshold, 0, NULL, 0);
     return PM3_SUCCESS;
 }
 
 static int CmdLFHitagSList(const char *Cmd) {
-    return CmdTraceListAlias(Cmd, "lf hitag hts", "hitags");
-}
-
-void hitags_config_print(hitags_config_t config) {
-    PrintAndLogEx(INFO, " Memory type...... " _GREEN_("%s"),
-    (const char *[]) {
-        "Hitag S 32", "Hitag S 256", "Hitag S 2048",
-        "Unknown Hitag S/8211"
-    }[config.MEMT]);
-
-    PrintAndLogEx(INFO, " Authenticaion.... %s", config.auth ? _YELLOW_("Yes") : "No");
-
-    PrintAndLogEx(INFO, " TTF coding....... %s",
-    config.RES3 ? "FSK  0=RF/10 1=RF/8" : (const char *[]) {"Manchester", "Biphase"}[config.TTFC]);
-
-    PrintAndLogEx(INFO, " TTF data rate.... %s",
-    (const char *[]) {
-        "4 kBit", "8 kBit", "2 kBit",
-        "2 kBit and Pigeon Race Standard"
-    }[config.TTFDR]);
-
-    PrintAndLogEx(INFO, " TTF mode......... %s",
-    (const char *[]) {
-        "TTF Mode disabled (= RTF Mode)",
-        "Page 4, Page 5",
-        "Page 4, Page 5, Page 6, Page 7",
-        "Page 4",
-        "TTF Mode disabled (= RTF Mode)",
-        "Page 4, Page 5, Page 6",
-        "Page 4, Page 5, Page 6, Page 7, Page 8",
-        "Page 4, Page 5, Page 6, Page 7, Page 8, Page 9, Page 10, Page 11",
-    }[config.RES0 << 2 | config.TTFM]);
-
-    PrintAndLogEx(INFO, " Config locked.... %s", config.LCON ? _RED_("Yes") : _GREEN_("No"));
-    PrintAndLogEx(INFO, " Key/PWD locked... %s", config.LKP ? _RED_("Yes") : _GREEN_("No"));
+    return CmdTraceListAlias(Cmd, "lf hitag hts", "hts");
 }
 
 static command_t CommandTable[] = {

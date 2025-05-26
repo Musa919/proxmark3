@@ -366,6 +366,10 @@ static void *bf_thread(void *thread_arg) {
         if (memcmp(calculated_MAC, mac, 4) == 0) {
 
             loclass_thread_ret_t *r = (loclass_thread_ret_t *)calloc(sizeof(loclass_thread_ret_t), sizeof(uint8_t));
+            if (r == NULL) {
+                PrintAndLogEx(WARNING, "Failed to allocate memory");
+                pthread_exit(NULL);
+            }
 
             for (uint8_t i = 0 ; i < numbytes_to_recover; i++) {
                 r->values[i] = keytable[bytes_to_recover[i]] & 0xFF;
@@ -723,7 +727,7 @@ int bruteforceDump(uint8_t dump[], size_t dumpsize, uint16_t keytable[]) {
     size_t itemsize = sizeof(loclass_dumpdata_t);
     loclass_dumpdata_t *attack = (loclass_dumpdata_t *) calloc(itemsize, sizeof(uint8_t));
     if (attack == NULL) {
-        PrintAndLogEx(WARNING, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 

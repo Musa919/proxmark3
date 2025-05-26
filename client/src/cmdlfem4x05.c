@@ -469,7 +469,7 @@ static int em4x05_login_ext(uint32_t pwd) {
     SendCommandNG(CMD_LF_EM4X_LOGIN, (uint8_t *)&payload, sizeof(payload));
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_EM4X_LOGIN, &resp, 10000) == false) {
-        PrintAndLogEx(WARNING, "(em4x05_login_ext) timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "(em4x05_login_ext) timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -496,7 +496,7 @@ int em4x05_read_word_ext(uint8_t addr, uint32_t pwd, bool use_pwd, uint32_t *wor
     SendCommandNG(CMD_LF_EM4X_READWORD, (uint8_t *)&payload, sizeof(payload));
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_EM4X_READWORD, &resp, 10000) == false) {
-        PrintAndLogEx(WARNING, "(em4x05_read_word_ext) timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "(em4x05_read_word_ext) timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -1173,7 +1173,7 @@ int CmdEM4x05Dump(const char *Cmd) {
         } else if (status == PM3_EFAILED) {
             PrintAndLogEx(WARNING, "password ( " _RED_("fail") ") , will try without password");
             usePwd = false;
-        } else if (status != PM3_EFAILED) {
+        } else {
             PrintAndLogEx(WARNING, "Login attempt: no answer from tag");
             return status;
         }
@@ -1486,7 +1486,7 @@ int CmdEM4x05Write(const char *Cmd) {
     else
         PrintAndLogEx(DEBUG, "No answer from tag");
 
-    PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`lf em 4x05 read`") " to verify");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("lf em 4x05 read") "` to verify");
     return status;
 }
 
@@ -1696,7 +1696,7 @@ int CmdEM4x05Chk(const char *Cmd) {
     void *argtable[] = {
         arg_param_begin,
         arg_str0("f", "file", "<fn>", "loads a default keys dictionary file <*.dic>"),
-        arg_str0("e", "em", "<EM4100>", "try the calculated password from some cloners based on EM4100 ID"),
+        arg_str0("e", "em", "<pwd>", "try the calculated password from some cloners based on EM4100 ID"),
         arg_param_end
     };
     CLIExecWithReturn(ctx, Cmd, argtable, true);
@@ -1839,7 +1839,7 @@ int CmdEM4x05Brute(const char *Cmd) {
     SendCommandNG(CMD_LF_EM4X_BF, (uint8_t *)&payload, sizeof(payload));
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_EM4X_BF, &resp, 1000) == false) {
-        PrintAndLogEx(WARNING, "(EM4x05 Bruteforce) timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "(EM4x05 Bruteforce) timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
     PrintAndLogEx(INFO, "Bruteforce is running on device side, press button to interrupt");
@@ -2013,7 +2013,7 @@ int CmdEM4x05Unlock(const char *Cmd) {
 
     PrintAndLogEx(INFO, "----------------------------------------------------------------------------\n");
     PrintAndLogEx(NORMAL, "");
-    PrintAndLogEx(INFO, "Press " _GREEN_("<Enter>'") " to exit");
+    PrintAndLogEx(INFO, "Press " _GREEN_("<Enter>") " to exit");
     PrintAndLogEx(NORMAL, "");
     PrintAndLogEx(INFO, "--------------- " _CYAN_("start") " -----------------------\n");
 

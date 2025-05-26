@@ -145,15 +145,19 @@ static int print_aid_description(json_t *root, uint16_t aid, char *fmt, bool ver
     }
 
     if (verbose) {
-        PrintAndLogEx(SUCCESS, "    MAD:               %s", vmad);
-        if (application)
-            PrintAndLogEx(SUCCESS, "    Application:       %s", application);
-        if (company)
-            PrintAndLogEx(SUCCESS, "    Company:           %s", company);
-        if (provider)
-            PrintAndLogEx(SUCCESS, "    Service provider:  %s", provider);
-        if (integrator)
-            PrintAndLogEx(SUCCESS, "    System integrator: %s", integrator);
+        PrintAndLogEx(SUCCESS, "     MAD................. %s", vmad);
+        if (application) {
+            PrintAndLogEx(SUCCESS, "     Application......... %s", application);
+        }
+        if (company) {
+            PrintAndLogEx(SUCCESS, "     Company............. %s", company);
+        }
+        if (provider) {
+            PrintAndLogEx(SUCCESS, "     Service provider.... %s", provider);
+        }
+        if (integrator) {
+            PrintAndLogEx(SUCCESS, "     System integrator... %s", integrator);
+        }
     }
     return PM3_SUCCESS;
 }
@@ -355,8 +359,16 @@ int MAD1DecodeAndPrint(uint8_t *sector, bool swapmad, bool verbose, bool *haveMA
                           aid
                          );
         } else {
-            char fmt[60];
-            snprintf(fmt, sizeof(fmt), (ibs == i) ? _MAGENTA_(" %02d [%04X]%s") : " %02d [" _GREEN_("%04X") "]%s", i, aid, "%s");
+            char fmt[80];
+            snprintf(fmt
+                     , sizeof(fmt)
+                     , (ibs == i) ?
+                     _MAGENTA_(" %02d [%04X] %s") :
+                     " %02d [" _GREEN_("%04X") "] %s"
+                     , i
+                     , aid
+                     , "%s"
+                    );
             print_aid_description(mad_known_aids, aid, fmt, verbose);
             prev_aid = aid;
         }
@@ -408,8 +420,16 @@ int MAD2DecodeAndPrint(uint8_t *sector, bool swapmad, bool verbose) {
                           aid
                          );
         } else {
-            char fmt[60];
-            snprintf(fmt, sizeof(fmt), (ibs == i) ? _MAGENTA_(" %02d [%04X]%s") : " %02d [" _GREEN_("%04X") "]%s", i + 16, aid, "%s");
+            char fmt[80];
+            snprintf(fmt
+                     , sizeof(fmt)
+                     , (ibs == i) ?
+                     _MAGENTA_(" %02d [%04X] %s") :
+                     " %02d [" _GREEN_("%04X") "] %s"
+                     , i + 16
+                     , aid
+                     , "%s"
+                    );
             print_aid_description(mad_known_aids, aid, fmt, verbose);
             prev_aid = aid;
         }

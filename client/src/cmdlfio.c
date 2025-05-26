@@ -68,7 +68,7 @@ int demodIOProx(bool verbose) {
     int idx = 0, retval = PM3_SUCCESS;
     uint8_t *bits = calloc(MAX_GRAPH_TRACE_LEN, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     size_t size = getFromGraphBuffer(bits);
@@ -251,6 +251,10 @@ static int CmdIOProxSim(const char *Cmd) {
     // arg2 --- Invert and clk setting
     // size --- 64 bits == 8 bytes
     lf_fsksim_t *payload = calloc(1, sizeof(lf_fsksim_t) + sizeof(bs));
+    if (payload == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return PM3_EMALLOC;
+    }
     payload->fchigh = 10;
     payload->fclow = 8;
     payload->separator = 1;
@@ -359,7 +363,7 @@ static int CmdIOProxClone(const char *Cmd) {
         res = clone_t55xx_tag(blocks, ARRAYLEN(blocks));
     }
     PrintAndLogEx(SUCCESS, "Done!");
-    PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`lf io reader`") " to verify");
+    PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`lf io reader`") " to verify");
     return res;
 }
 

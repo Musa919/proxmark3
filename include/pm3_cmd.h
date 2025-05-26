@@ -131,6 +131,27 @@ typedef struct {
     bool verbose;
 } PACKED sample_config;
 
+
+// Defines a frame that will be used in a polling sequence
+// Polling loop annotations are up to 20 bytes long, 24 bytes should cover future and other cases
+typedef struct {
+    uint8_t frame[24];
+    // negative values can be used to carry special info
+    int8_t frame_length;
+    uint8_t last_byte_bits;
+    uint16_t extra_delay;
+} PACKED iso14a_polling_frame_t;
+
+
+// Defines polling sequence configuration
+typedef struct {
+    // 6 would be enough for 4 magsafe, 1 wupa, 1 pla,
+    iso14a_polling_frame_t frames[6];
+    int8_t frame_count;
+    uint16_t extra_timeout;
+} PACKED iso14a_polling_parameters_t;
+
+
 // A struct used to send hf14a-configs over USB
 typedef struct {
     int8_t forceanticol; // 0:auto 1:force executing anticol 2:force skipping anticol
@@ -138,7 +159,9 @@ typedef struct {
     int8_t forcecl2;     // 0:auto 1:force executing CL2 2:force skipping CL2
     int8_t forcecl3;     // 0:auto 1:force executing CL3 2:force skipping CL3
     int8_t forcerats;    // 0:auto 1:force executing RATS 2:force skipping RATS
-} PACKED hf14a_config;
+    int8_t magsafe;      // 0:disabled 1:enabled
+    iso14a_polling_frame_t polling_loop_annotation; // Polling loop annotation
+} PACKED hf14a_config_t;
 
 // Tracelog Header struct
 typedef struct {
@@ -575,6 +598,7 @@ typedef struct {
 #define CMD_HF_ISO15693_SLIX_PASS_PROTECT_AFI                             0x0863
 #define CMD_HF_ISO15693_SLIX_PASS_PROTECT_EAS                             0x0864
 #define CMD_HF_ISO15693_SLIX_WRITE_PWD                                    0x0865
+#define CMD_HF_ISO15693_SLIX_PROTECT_PAGE                                 0x0868
 #define CMD_HF_ISO15693_WRITE_AFI                                         0x0866
 #define CMD_HF_TEXKOM_SIMULATE                                            0x0320
 #define CMD_HF_ISO15693_EML_CLEAR                                         0x0330
@@ -600,6 +624,12 @@ typedef struct {
 #define CMD_LF_HITAGS_READ                                                0x0373
 #define CMD_LF_HITAGS_WRITE                                               0x0375
 #define CMD_LF_HITAGS_UID                                                 0x037A
+
+// For Hitag µ
+#define CMD_LF_HITAGU_READ                                                0x037B
+#define CMD_LF_HITAGU_WRITE                                               0x037C
+#define CMD_LF_HITAGU_SIMULATE                                            0x037D
+#define CMD_LF_HITAGU_UID                                                 0x037E
 
 #define CMD_LF_HITAG_ELOAD                                                0x0376
 

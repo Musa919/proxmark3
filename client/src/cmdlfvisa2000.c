@@ -245,7 +245,7 @@ static int CmdVisa2kClone(const char *Cmd) {
         res = clone_t55xx_tag(blocks, ARRAYLEN(blocks));
     }
     PrintAndLogEx(SUCCESS, "Done!");
-    PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`lf visa2000 reader`") " to verify");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("lf visa2000 reader") "` to verify");
     return res;
 }
 
@@ -276,6 +276,10 @@ static int CmdVisa2kSim(const char *Cmd) {
         num_to_bytebits(blocks[i], 32, bs + i * 32);
 
     lf_asksim_t *payload = calloc(1, sizeof(lf_asksim_t) + sizeof(bs));
+    if (payload == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return PM3_EMALLOC;
+    }
     payload->encoding =  1;
     payload->invert = 0;
     payload->separator = 1;

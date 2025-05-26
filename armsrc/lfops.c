@@ -64,11 +64,11 @@ SAM7S has several timers, we will use the source TIMER_CLOCK1 (aka AT91C_TC_CLKS
  TIMER_CLOCK1 = MCK/2, MCK is running at 48 MHz, Timer is running at 48/2 = 24 MHz
 
 New timer implementation in ticks.c, which is used in LFOPS.c
-       1 μs = 1.5 ticks
- 1 fc = 8 μs = 12 ticks
+       1 µs = 1.5 ticks
+ 1 fc = 8 µs = 12 ticks
 
 Terms you find in different datasheets and how they match.
-1 Cycle = 8 microseconds (μs)  == 1 field clock (fc)
+1 Cycle = 8 microseconds (µs)  == 1 field clock (fc)
 
 Note about HITAG timing
 Hitag units (T0) have duration of 8 microseconds (us), which is 1/125000 per second (carrier)
@@ -80,7 +80,7 @@ Hitag units (T0) have duration of 8 microseconds (us), which is 1/125000 per sec
   ==========================================================================================================
 
     ATA5577 Downlink Protocol Timings.
-    Note: All absolute times assume TC = 1 / fC = 8 μs (fC = 125 kHz)
+    Note: All absolute times assume TC = 1 / fC = 8 µs (fC = 125 kHz)
 
     Note: These timings are from the datasheet and doesn't map the best to the features of the RVD4 LF antenna.
           RDV4 LF antenna has high voltage and the drop of power when turning off the rf field takes about 1-2 TC longer.
@@ -1336,6 +1336,10 @@ int lf_hid_watch(int findone, uint32_t *high, uint32_t *low, bool ledcontrol) {
                     if (bitlen == 26) {
                         cardnum = (lo >> 1) & 0xFFFF;
                         fac = (lo >> 17) & 0xFF;
+                    }
+                    if (bitlen == 37) {
+                        cardnum = (lo >> 1) & 0x7FFFF;
+                        fac = ((hi & 0xF) << 12) | (lo >> 20);
                     }
                     if (bitlen == 34) {
                         cardnum = (lo >> 1) & 0xFFFF;

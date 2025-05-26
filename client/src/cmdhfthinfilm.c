@@ -126,7 +126,7 @@ int infoThinFilm(bool verbose) {
 
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_HF_THINFILM_READ, &resp, 1500) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
@@ -187,7 +187,7 @@ int CmdHfThinFilmSim(const char *Cmd) {
     int ret;
     while (!(ret = kbd_enter_pressed())) {
 
-        if (WaitForResponseTimeout(CMD_HF_THINFILM_SIMULATE, &resp, 500) == 0) {
+        if (WaitForResponseTimeout(CMD_HF_THINFILM_SIMULATE, &resp, 500) == false) {
             continue;
         }
 

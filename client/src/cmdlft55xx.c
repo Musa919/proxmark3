@@ -345,6 +345,14 @@ static void arg_add_t55xx_downloadlink(void *at[], uint8_t *idx, uint8_t show, u
     char *r2 = (char *)calloc(r_count, sizeof(uint8_t));
     char *r3 = (char *)calloc(r_count, sizeof(uint8_t));
 
+    if (r0 == NULL || r1 == NULL || r2 == NULL || r3 == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        free(r0);
+        free(r1);
+        free(r2);
+        free(r3);
+        return;
+    }
     snprintf(r0, r_len, "downlink - fixed bit length %s", (dl_mode_def == 0) ? "(detected def)" : "");
     snprintf(r1, r_len, "downlink - long leading reference %s", (dl_mode_def == 1) ? "(detected def)" : "");
     snprintf(r2, r_len, "downlink - leading zero %s", (dl_mode_def == 2) ? "(detected def)" : "");
@@ -358,6 +366,14 @@ static void arg_add_t55xx_downloadlink(void *at[], uint8_t *idx, uint8_t show, u
 
     if (show == T55XX_DLMODE_ALL) {
         char *r4 = (char *)calloc(r_count, sizeof(uint8_t));
+        if (r4 == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
+            free(r0);
+            free(r1);
+            free(r2);
+            free(r3);
+            return;
+        }
         snprintf(r4, r_len, "try all downlink modes %s", (dl_mode_def == 4) ? "(def)" : "");
         at[n++] = arg_lit0(NULL, "all", r4);
     }
@@ -450,7 +466,7 @@ int clone_t55xx_tag(uint32_t *blockdata, uint8_t numblocks) {
         ng.flags = 0;
 
         SendCommandNG(CMD_LF_T55XX_WRITEBL, (uint8_t *)&ng, sizeof(ng));
-        if (!WaitForResponseTimeout(CMD_LF_T55XX_WRITEBL, &resp, T55XX_WRITE_TIMEOUT)) {
+        if (WaitForResponseTimeout(CMD_LF_T55XX_WRITEBL, &resp, T55XX_WRITE_TIMEOUT) == false) {
             PrintAndLogEx(ERR, "Error occurred, device did not respond during write operation.");
             return PM3_ETIMEOUT;
         }
@@ -648,7 +664,7 @@ int t55xxWrite(uint8_t block, bool page1, bool usepwd, bool testMode, uint32_t p
     PacketResponseNG resp;
     clearCommandBuffer();
     SendCommandNG(CMD_LF_T55XX_WRITEBL, (uint8_t *)&ng, sizeof(ng));
-    if (!WaitForResponseTimeout(CMD_LF_T55XX_WRITEBL, &resp, 2000)) {
+    if (WaitForResponseTimeout(CMD_LF_T55XX_WRITEBL, &resp, 2000) == false) {
         PrintAndLogEx(ERR, "Error occurred, device did not ACK write operation.");
         return PM3_ETIMEOUT;
     }
@@ -900,7 +916,7 @@ int T55xxReadBlockEx(uint8_t block, bool page1, bool usepwd, uint8_t override, u
 
             if (t55xxTryDetectModulationEx(downlink_mode, false, 0, password) == false) {
                 PrintAndLogEx(WARNING, "Safety check: Could not detect if PWD bit is set in config block. Exits.");
-                PrintAndLogEx(HINT, "Consider using the override parameter to force read.");
+                PrintAndLogEx(HINT, "Hint: Consider using the override parameter to force read.");
                 return PM3_EWRONGANSWER;
             } else {
                 PrintAndLogEx(WARNING, "Safety check: PWD bit is NOT set in config block. Reading without password...");
@@ -1550,6 +1566,8 @@ bool testKnownConfigBlock(uint32_t block0) {
         case T55X7_NEXWATCH_CONFIG_BLOCK:
         case T55X7_JABLOTRON_CONFIG_BLOCK:
         case T55X7_PYRONIX_CONFIG_BLOCK:
+        case T55X7_TEXECOM_CONFIG_BLOCK:
+        case T55X7_BETECH_CONFIG_BLOCK:
             return true;
     }
     return false;
@@ -1940,7 +1958,7 @@ static int CmdT55xxDangerousRaw(const char *Cmd) {
 
     void *argtable[] = {
         arg_param_begin,
-        arg_str1("d", "data", NULL, "raw bit string"),
+        arg_str1("d", "data", "<bitstr>", "raw bit string"),
         arg_int1("t", "time", "<us>", "<0 - 200000> time in microseconds before dropping the field"),
         arg_param_end
     };
@@ -1974,7 +1992,7 @@ static int CmdT55xxDangerousRaw(const char *Cmd) {
     PacketResponseNG resp;
     clearCommandBuffer();
     SendCommandNG(CMD_LF_T55XX_DANGERRAW, (uint8_t *)&ng, sizeof(ng));
-    if (!WaitForResponseTimeout(CMD_LF_T55XX_DANGERRAW, &resp, 2000)) {
+    if (WaitForResponseTimeout(CMD_LF_T55XX_DANGERRAW, &resp, 2000) == false) {
         PrintAndLogEx(ERR, "Error occurred, device did not ACK write operation.");
         return PM3_ETIMEOUT;
     }
@@ -2298,12 +2316,18 @@ static void printT5x7KnownBlock0(uint32_t b0) {
         case T55X7_PYRONIX_CONFIG_BLOCK:
             snprintf(s + strlen(s), sizeof(s) - strlen(s), "Pyronix ");
             break;
+        case T55X7_TEXECOM_CONFIG_BLOCK:
+            snprintf(s + strlen(s), sizeof(s) - strlen(s), "Texecom ");
+            break;
+        case T55X7_BETECH_CONFIG_BLOCK:
+            snprintf(s + strlen(s), sizeof(s) - strlen(s), "Be-Tech ");
+            break;
         default:
             break;
     }
 
     if (strlen(s) > 0) {
-        PrintAndLogEx(SUCCESS, "Config block match        : " _YELLOW_("%s"), s);
+        PrintAndLogEx(SUCCESS, "Config block match... " _YELLOW_("%s"), s);
     }
 }
 
@@ -2816,7 +2840,7 @@ bool AcquireData(uint8_t page, uint8_t block, bool pwdmode, uint32_t password, u
 
     clearCommandBuffer();
     SendCommandNG(CMD_LF_T55XX_READBL, (uint8_t *)&payload, sizeof(payload));
-    if (!WaitForResponseTimeout(CMD_LF_T55XX_READBL, NULL, 2500)) {
+    if (WaitForResponseTimeout(CMD_LF_T55XX_READBL, NULL, 2500) == false) {
         PrintAndLogEx(WARNING, "command execution time out");
         return false;
     }
@@ -3176,7 +3200,7 @@ static int CmdResetRead(const char *Cmd) {
         uint16_t gotsize = g_pm3_capabilities.bigbuf_size - 1;
         uint8_t *got = calloc(gotsize, sizeof(uint8_t));
         if (got == NULL) {
-            PrintAndLogEx(WARNING, "failed to allocate memory");
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             return PM3_EMALLOC;
         }
 
@@ -3411,7 +3435,7 @@ static int CmdT55xxChkPwds(const char *Cmd) {
         PacketResponseNG resp;
 
         uint8_t timeout = 0;
-        while (!WaitForResponseTimeout(CMD_LF_T55XX_CHK_PWDS, &resp, 2000)) {
+        while (WaitForResponseTimeout(CMD_LF_T55XX_CHK_PWDS, &resp, 2000) == false) {
             timeout++;
             PrintAndLogEx(NORMAL, "." NOLF);
             if (timeout > 180) {

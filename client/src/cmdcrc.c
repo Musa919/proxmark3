@@ -56,6 +56,10 @@ static int split(char *str, char *arr[MAX_ARGS]) {
         }
         int len = endIndex - beginIndex;
         char *tmp = calloc(len + 1, sizeof(char));
+        if (tmp == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
+            return wordCnt;
+        }
         memcpy(tmp, &str[beginIndex], len);
         arr[wordCnt++] = tmp;
         beginIndex = endIndex;
@@ -97,7 +101,7 @@ int GetModels(char *Models[], int *count, uint8_t *width) {
 
             char *tmp = calloc(size + 1, sizeof(char));
             if (tmp == NULL) {
-                PrintAndLogEx(WARNING, "out of memory?");
+                PrintAndLogEx(WARNING, "Failed to allocate memory");
                 return 0;
             }
 
@@ -198,7 +202,7 @@ int GetModels(char *Models[], int *count, uint8_t *width) {
                         //PrintAndLogEx(NORMAL, "Size: %d, %s, count: %d",size,pset.name, Cnt);
                         char *tmp = calloc(size + 1, sizeof(char));
                         if (tmp == NULL) {
-                            PrintAndLogEx(WARNING, "out of memory?");
+                            PrintAndLogEx(WARNING, "Failed to allocate memory");
                             return 0;
                         }
 
@@ -428,6 +432,11 @@ static int CmdrevengTestC(const char *Cmd) {
 //returns a calloced string (needs to be freed)
 static char *SwapEndianStr(const char *inStr, const size_t len, const uint8_t blockSize) {
     char *tmp = calloc(len + 1, sizeof(char));
+    if (tmp == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return NULL;
+    }
+
     for (uint8_t block = 0; block < (uint8_t)(len / blockSize); block++) {
         for (size_t i = 0; i < blockSize; i += 2) {
             tmp[i + (blockSize * block)] = inStr[(blockSize - 1 - i - 1) + (blockSize * block)];
@@ -493,6 +502,7 @@ static int CmdrevengSearch(const char *Cmd) {
         memset(result, 0, sizeof(result));
         char *inCRC = calloc(crcChars + 1, sizeof(char));
         if (inCRC == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             return 0;
         }
 
@@ -500,6 +510,7 @@ static int CmdrevengSearch(const char *Cmd) {
 
         char *outHex = calloc(dataLen - crcChars + 1, sizeof(char));
         if (outHex == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             free(inCRC);
             return 0;
         }

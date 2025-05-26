@@ -491,6 +491,10 @@ static int CmdHF14AJookiSim(const char *Cmd) {
 
     // hf mfu sim...
     uint8_t *data = calloc(144, sizeof(uint8_t));
+    if (data == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return PM3_EMALLOC;
+    }
 
     memcpy(data, uid, 3);
     memcpy(data + (1 * 4), uid + 3, 4);
@@ -591,7 +595,7 @@ static int CmdHF14AJookiSim(const char *Cmd) {
             break;
     }
     free(data);
-    PrintAndLogEx(HINT, "Try `" _YELLOW_("hf 14a list") "` to view trace log");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf 14a list") "` to view trace log");
     PrintAndLogEx(INFO, "Done!");
     return PM3_SUCCESS;
 }
@@ -669,7 +673,7 @@ static int CmdHF14AJookiClone(const char *Cmd) {
         i++;
     }
 
-    PrintAndLogEx(HINT, "Try `" _YELLOW_("hf mfu ndefread") "` to view");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf mfu ndefread") "` to view");
     PrintAndLogEx(INFO, "Done!");
     return PM3_SUCCESS;
 }

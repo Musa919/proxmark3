@@ -60,7 +60,7 @@ int hfgal_diversify_key(uint8_t *site_key, uint8_t *uid, uint8_t uid_len,
     int res = mfdes_kdf_input_gallagher(uid, uid_len, key_num, aid, key_output, &kdf_input_len);
     PM3_RET_IF_ERR_WITH_MSG(res, "Failed generating Gallagher key diversification input");
 
-    uint8_t key[sizeof(DEFAULT_SITE_KEY)];
+    uint8_t key[sizeof(DEFAULT_SITE_KEY)] = {0};
     if (site_key == NULL) {
         PrintAndLogEx(INFO, "hfgal_diversify_key is using default site key");
         memcpy(key, DEFAULT_SITE_KEY, sizeof(key));
@@ -1089,7 +1089,7 @@ static int CmdGallagherClone(const char *cmd) {
     }
 
     PrintAndLogEx(SUCCESS, "Done!");
-    PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf gallagher reader`") " to verify");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf gallagher reader") "` to verify");
     return PM3_SUCCESS;
 }
 
@@ -1170,7 +1170,7 @@ static int CmdGallagherDelete(const char *cmd) {
     }
 
     PrintAndLogEx(SUCCESS, "Done!");
-    PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf gallagher reader`") " to verify");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf gallagher reader") "` to verify");
     return PM3_SUCCESS;
 }
 
@@ -1245,7 +1245,7 @@ static int CmdGallagherDiversify(const char *cmd) {
     PrintAndLogEx(SUCCESS, "Successfully diversified key: " _GREEN_("%s"), key_str);
 
     if (IfPm3Iso14443()) {
-        PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`hf mfdes auth --aid %06X --keyno %d --algo AES --key %s`") " to verify",
+        PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf mfdes auth --aid %06X --keyno %d --algo AES --key %s") "` to verify",
                       aid,
                       key_num,
                       key_str

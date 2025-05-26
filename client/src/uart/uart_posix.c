@@ -86,7 +86,7 @@ serial_port uart_open(const char *pcPortName, uint32_t speed, bool slient) {
     serial_port_unix_t_t *sp = calloc(sizeof(serial_port_unix_t_t), sizeof(uint8_t));
 
     if (sp == 0) {
-        PrintAndLogEx(ERR, "UART failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return INVALID_SERIAL_PORT;
     }
 
@@ -362,8 +362,9 @@ serial_port uart_open(const char *pcPortName, uint32_t speed, bool slient) {
     // Freshly available port can take a while before getting permission to access it. Up to 600ms on my machine...
     for (uint8_t i = 0; i < 10; i++) {
         sp->fd = open(pcPortName, O_RDWR | O_NOCTTY | O_NDELAY | O_NONBLOCK);
-        if (sp->fd != -1 || errno != EACCES)
+        if (sp->fd != -1 || errno != EACCES) {
             break;
+        }
         msleep(100);
     }
     if (sp->fd == -1) {
@@ -450,6 +451,7 @@ serial_port uart_open(const char *pcPortName, uint32_t speed, bool slient) {
 
 void uart_close(const serial_port sp) {
     serial_port_unix_t_t *spu = (serial_port_unix_t_t *)sp;
+    msleep(100);
     tcflush(spu->fd, TCIOFLUSH);
     tcsetattr(spu->fd, TCSANOW, &(spu->tiOld));
     struct flock fl;
@@ -477,7 +479,7 @@ int uart_receive(const serial_port sp, uint8_t *pbtRx, uint32_t pszMaxRxLen, uin
     const serial_port_unix_t_t *spu = (serial_port_unix_t_t *)sp;
 
     if (newtimeout_pending) {
-        timeout.tv_usec = newtimeout_value * 1000;
+        timeout.tv_usec = ((suseconds_t)newtimeout_value) * 1000;
         newtimeout_pending = false;
     }
     // Reset the output count
@@ -711,14 +713,16 @@ bool uart_set_speed(serial_port sp, const uint32_t uiPortSpeed) {
     };
 
     struct termios ti;
-    if (tcgetattr(spu->fd, &ti) == -1)
+    if (tcgetattr(spu->fd, &ti) == -1) {
         return false;
+    }
 
     // Set port speed (Input and Output)
     cfsetispeed(&ti, stPortSpeed);
     cfsetospeed(&ti, stPortSpeed);
 
     // flush
+    msleep(100);
     tcflush(spu->fd, TCIOFLUSH);
 
     bool result = tcsetattr(spu->fd, TCSANOW, &ti) != -1;

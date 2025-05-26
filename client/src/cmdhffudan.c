@@ -71,6 +71,10 @@ static char *GenerateFilename(iso14a_card_select_t *card, const char *prefix, co
         return NULL;
     }
     char *fptr = calloc(sizeof(char) * (strlen(prefix) + strlen(suffix)) + sizeof(card->uid) * 2 + 1,  sizeof(uint8_t));
+    if (fptr == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return NULL;
+    }
     strcpy(fptr, prefix);
     FillFileNameByUID(fptr, card->uid, suffix, card->uidlen);
     return fptr;
@@ -340,8 +344,9 @@ static int CmdHFFudanDump(const char *Cmd) {
     // create filename if none was given
     if (strlen(dataFilename) < 1) {
         char *fptr = GenerateFilename(&card, "hf-fudan-", "-dump");
-        if (fptr == NULL)
+        if (fptr == NULL) {
             return PM3_ESOFT;
+        }
 
         strcpy(dataFilename, fptr);
         free(fptr);
@@ -411,7 +416,7 @@ static int CmdHFFudanWrBl(const char *Cmd) {
     uint8_t isok  = resp.oldarg[0] & 0xff;
     if (isok) {
         PrintAndLogEx(SUCCESS, "Write ( " _GREEN_("ok") " )");
-        PrintAndLogEx(HINT, "try `" _YELLOW_("hf fudan rdbl") "` to verify");
+        PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf fudan rdbl") "` to verify");
     } else {
         PrintAndLogEx(FAILED, "Write ( " _RED_("fail") " )");
     }

@@ -356,7 +356,7 @@ static void mf_print_blocks(uint16_t n, uint8_t *d, bool verbose) {
 
     // MAD detection
     if (HasMADKey(d)) {
-        PrintAndLogEx(HINT, "MAD key detected. Try " _YELLOW_("`hf mf mad`") " for more details");
+        PrintAndLogEx(HINT, "Hint: MAD key detected. Try `" _YELLOW_("hf mf mad") "` for more details");
     }
     PrintAndLogEx(NORMAL, "");
 }
@@ -753,8 +753,8 @@ static int mf_load_keys(uint8_t **pkeyBlock, uint32_t *pkeycnt, uint8_t *userkey
     if (userkeylen >= MIFARE_KEY_SIZE) {
         int numKeys = userkeylen / MIFARE_KEY_SIZE;
         p = realloc(*pkeyBlock, numKeys * MIFARE_KEY_SIZE);
-        if (!p) {
-            PrintAndLogEx(FAILED, "cannot allocate memory for Keys");
+        if (p == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             free(*pkeyBlock);
             return PM3_EMALLOC;
         }
@@ -766,14 +766,14 @@ static int mf_load_keys(uint8_t **pkeyBlock, uint32_t *pkeycnt, uint8_t *userkey
             PrintAndLogEx(DEBUG, _YELLOW_("%2d") " - %s", i, sprint_hex(*pkeyBlock + i * MIFARE_KEY_SIZE, MIFARE_KEY_SIZE));
         }
         *pkeycnt += numKeys;
-        PrintAndLogEx(SUCCESS, "loaded " _GREEN_("%2d") " user keys", numKeys);
+        PrintAndLogEx(SUCCESS, "loaded " _GREEN_("%d") " user keys", numKeys);
     }
 
     if (load_default) {
         // Handle default keys
         p = realloc(*pkeyBlock, (*pkeycnt + ARRAYLEN(g_mifare_default_keys)) * MIFARE_KEY_SIZE);
-        if (!p) {
-            PrintAndLogEx(FAILED, "cannot allocate memory for Keys");
+        if (p == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             free(*pkeyBlock);
             return PM3_EMALLOC;
         }
@@ -799,8 +799,8 @@ static int mf_load_keys(uint8_t **pkeyBlock, uint32_t *pkeycnt, uint8_t *userkey
             return PM3_EFILE;
         } else {
             p = realloc(*pkeyBlock, (*pkeycnt + loaded_numKeys) * MIFARE_KEY_SIZE);
-            if (!p) {
-                PrintAndLogEx(FAILED, "cannot allocate memory for Keys");
+            if (p == NULL) {
+                PrintAndLogEx(WARNING, "Failed to allocate memory");
                 free(keyBlock_tmp);
                 free(*pkeyBlock);
                 return PM3_EMALLOC;
@@ -1017,13 +1017,13 @@ static int CmdHF14AMfWrBl(const char *Cmd) {
     int status  = resp.oldarg[0];
     if (status > 0) {
         PrintAndLogEx(SUCCESS, "Write ( " _GREEN_("ok") " )");
-        PrintAndLogEx(HINT, "try `" _YELLOW_("hf mf rdbl") "` to verify");
+        PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf mf rdbl") "` to verify");
     } else if (status == PM3_ETEAROFF) {
         return status;
     } else {
         PrintAndLogEx(FAILED, "Write ( " _RED_("fail") " )");
         // suggest the opposite keytype than what was used.
-        PrintAndLogEx(HINT, "Maybe access rights? Try specify keytype `" _YELLOW_("hf mf wrbl -%c ...") "` instead", (keytype == MF_KEY_A) ? 'b' : 'a');
+        PrintAndLogEx(HINT, "Hint: Maybe access rights? Try specify keytype `" _YELLOW_("hf mf wrbl -%c ...") "` instead", (keytype == MF_KEY_A) ? 'b' : 'a');
     }
     return PM3_SUCCESS;
 }
@@ -1155,7 +1155,7 @@ static int CmdHF14AMfRdSc(const char *Cmd) {
 
     uint8_t *data = calloc(sc_size, sizeof(uint8_t));
     if (data == NULL) {
-        PrintAndLogEx(ERR, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -1315,7 +1315,7 @@ static int CmdHF14AMfDump(const char *Cmd) {
     iso14a_card_select_t card ;
     uint8_t *mem = calloc(MIFARE_4K_MAX_BYTES, sizeof(uint8_t));
     if (mem == NULL) {
-        PrintAndLogEx(ERR, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     int res = mfc_read_tag(&card, mem, numSectors, keyFilename);
@@ -1611,7 +1611,7 @@ out:
     free(keyB);
     PrintAndLogEx(INFO, "-----+-------------------------------------------------+----------------");
     PrintAndLogEx(NORMAL, "");
-    PrintAndLogEx(HINT, "try `" _YELLOW_("hf mf dump --ns") "` to verify");
+    PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf mf dump --ns") "` to verify");
     PrintAndLogEx(INFO, "Done!");
     return PM3_SUCCESS;
 }
@@ -1915,9 +1915,13 @@ static int CmdHF14AMfNested(const char *Cmd) { //TODO: single mode broken? can't
                 SendCommandNG(CMD_HF_MIFARE_READBL, (uint8_t *)&payload, sizeof(mf_readblock_t));
 
                 PacketResponseNG resp;
-                if (!WaitForResponseTimeout(CMD_HF_MIFARE_READBL, &resp, 1500)) continue;
+                if (WaitForResponseTimeout(CMD_HF_MIFARE_READBL, &resp, 1500) == false) {
+                    continue;
+                }
 
-                if (resp.status != PM3_SUCCESS) continue;
+                if (resp.status != PM3_SUCCESS) {
+                    continue;
+                }
 
                 uint8_t *data = resp.data.asBytes;
                 key64 = bytes_to_num(data + 10, 6);
@@ -2408,7 +2412,7 @@ static int CmdHF14AMfNestedHard(const char *Cmd) {
             // check if tag doesn't have static nonce
             if (detect_classic_static_nonce() == NONCE_STATIC) {
                 PrintAndLogEx(WARNING, "Static nonce detected. Quitting...");
-                PrintAndLogEx(HINT, "\tTry use `" _YELLOW_("hf mf staticnested") "`");
+                PrintAndLogEx(HINT, "Hint: Try use `" _YELLOW_("hf mf staticnested") "`");
                 return PM3_EOPABORTED;
             }
 
@@ -2490,6 +2494,7 @@ static int CmdHF14AMfAutoPWN(const char *Cmd) {
         arg_lit0(NULL, "slow",             "Slower acquisition (required by some non standard cards)"),
         arg_lit0("l",  "legacy",           "legacy mode (use the slow `hf mf chk`)"),
         arg_lit0("v",  "verbose",          "verbose output"),
+        arg_lit0(NULL, "mem", "Use dictionary from flashmemory"),
 
         arg_lit0(NULL, "ns", "No save to file"),
 
@@ -2538,30 +2543,30 @@ static int CmdHF14AMfAutoPWN(const char *Cmd) {
     char outfilename[FILE_PATH_SIZE] = {0};
     CLIParamStrToBuf(arg_get_str(ctx, 6), (uint8_t *)outfilename, FILE_PATH_SIZE, &outfnlen);
 
-
     bool slow = arg_get_lit(ctx, 7);
     bool legacy_mfchk = arg_get_lit(ctx, 8);
     bool verbose = arg_get_lit(ctx, 9);
+    bool use_flashmemory = arg_get_lit(ctx, 10);
 
-    bool no_save = arg_get_lit(ctx, 10);
+    bool no_save = arg_get_lit(ctx, 11);
 
-    bool m0 = arg_get_lit(ctx, 11);
-    bool m1 = arg_get_lit(ctx, 12);
-    bool m2 = arg_get_lit(ctx, 13);
-    bool m4 = arg_get_lit(ctx, 14);
+    bool m0 = arg_get_lit(ctx, 12);
+    bool m1 = arg_get_lit(ctx, 13);
+    bool m2 = arg_get_lit(ctx, 14);
+    bool m4 = arg_get_lit(ctx, 15);
 
-    bool in = arg_get_lit(ctx, 15);
+    bool in = arg_get_lit(ctx, 16);
 #if defined(COMPILER_HAS_SIMD_X86)
-    bool im = arg_get_lit(ctx, 16);
-    bool is = arg_get_lit(ctx, 17);
-    bool ia = arg_get_lit(ctx, 18);
-    bool i2 = arg_get_lit(ctx, 19);
+    bool im = arg_get_lit(ctx, 17);
+    bool is = arg_get_lit(ctx, 18);
+    bool ia = arg_get_lit(ctx, 19);
+    bool i2 = arg_get_lit(ctx, 20);
 #endif
 #if defined(COMPILER_HAS_SIMD_AVX512)
-    bool i5 = arg_get_lit(ctx, 20);
+    bool i5 = arg_get_lit(ctx, 21);
 #endif
 #if defined(COMPILER_HAS_SIMD_NEON)
-    bool ie = arg_get_lit(ctx, 16);
+    bool ie = arg_get_lit(ctx, 17);
 #endif
 
     CLIParserFree(ctx);
@@ -2752,6 +2757,9 @@ static int CmdHF14AMfAutoPWN(const char *Cmd) {
             free(fptr);
             return PM3_ESOFT;
         }
+
+        //
+        has_staticnonce = detect_classic_static_encrypted_nonce(0, MF_KEY_A, g_mifare_default_key);
     }
 
     // print parameters
@@ -2763,12 +2771,24 @@ static int CmdHF14AMfAutoPWN(const char *Cmd) {
         PrintAndLogEx(INFO, " keytype ....... " _YELLOW_("%c"), (keytype == MF_KEY_B) ? 'B' : 'A');
         PrintAndLogEx(INFO, " known key ..... " _YELLOW_("%s"), sprint_hex_inrow(key, sizeof(key)));
 
-        if (has_staticnonce == NONCE_STATIC)
-            PrintAndLogEx(INFO, " card PRNG ..... " _YELLOW_("STATIC"));
-        else if (has_staticnonce == NONCE_NORMAL)
-            PrintAndLogEx(INFO, " card PRNG ..... " _YELLOW_("%s"), prng_type ? "WEAK" : "HARD");
-        else
-            PrintAndLogEx(INFO, " card PRNG ..... " _YELLOW_("Could not determine PRNG,") " " _RED_("read failed."));
+        switch (has_staticnonce) {
+            case NONCE_STATIC: {
+                PrintAndLogEx(INFO, " card PRNG ..... " _YELLOW_("STATIC"));
+                break;
+            }
+            case NONCE_STATIC_ENC: {
+                PrintAndLogEx(INFO, " card PRNG ..... " _YELLOW_("STATIC ENCRYPTED"));
+                break;
+            }
+            case NONCE_NORMAL: {
+                PrintAndLogEx(INFO, " card PRNG ..... " _YELLOW_("%s"), prng_type ? "WEAK" : "HARD");
+                break;
+            }
+            default: {
+                PrintAndLogEx(INFO, " card PRNG ..... " _YELLOW_("Could not determine PRNG,") " " _RED_("read failed."));
+                break;
+            }
+        }
 
         PrintAndLogEx(INFO, " dictionary .... " _YELLOW_("%s"), strlen(filename) ? filename : "NONE");
         PrintAndLogEx(INFO, " legacy mode ... " _YELLOW_("%s"), legacy_mfchk ? "True" : "False");
@@ -2784,6 +2804,11 @@ static int CmdHF14AMfAutoPWN(const char *Cmd) {
     // Start the timer
     uint64_t t1 = msclock();
 
+    // If we use the dictionary in flash memory, we don't want to load keys
+    // from hard drive dictionary as it could exceed BigBuf capacity
+    if (use_flashmemory) {
+        fnlen = 0;
+    }
     int ret = mf_load_keys(&keyBlock, &key_cnt, in_keys, in_keys_len, filename, fnlen, true);
     if (ret != PM3_SUCCESS) {
         free(e_sector);
@@ -2793,7 +2818,9 @@ static int CmdHF14AMfAutoPWN(const char *Cmd) {
     int32_t res = PM3_SUCCESS;
 
     // Use the dictionary to find sector keys on the card
-    if (verbose) PrintAndLogEx(INFO, "======================= " _YELLOW_("START DICTIONARY ATTACK") " =======================");
+    if (verbose) {
+        PrintAndLogEx(INFO, "======================= " _YELLOW_("START DICTIONARY ATTACK") " =======================");
+    }
 
     if (legacy_mfchk) {
         PrintAndLogEx(INFO, "." NOLF);
@@ -2818,40 +2845,47 @@ static int CmdHF14AMfAutoPWN(const char *Cmd) {
         PrintAndLogEx(NORMAL, "");
     } else {
 
-        uint32_t chunksize = key_cnt > (PM3_CMD_DATA_SIZE / MIFARE_KEY_SIZE) ? (PM3_CMD_DATA_SIZE / MIFARE_KEY_SIZE) : key_cnt;
-        bool firstChunk = true, lastChunk = false;
+        if (use_flashmemory) {
+            PrintAndLogEx(SUCCESS, "Using dictionary in flash memory");
+            res = mf_check_keys_fast(sector_cnt, true, true, 1, key_cnt, keyBlock, e_sector, use_flashmemory, verbose);
+        } else {
 
-        for (uint8_t strategy = 1; strategy < 3; strategy++) {
-            PrintAndLogEx(INFO, "running strategy %u", strategy);
-            // main keychunk loop
-            for (uint32_t i = 0; i < key_cnt; i += chunksize) {
+            uint32_t chunksize = key_cnt > (PM3_CMD_DATA_SIZE / MIFARE_KEY_SIZE) ? (PM3_CMD_DATA_SIZE / MIFARE_KEY_SIZE) : key_cnt;
+            bool firstChunk = true, lastChunk = false;
 
-                if (kbd_enter_pressed()) {
-                    PrintAndLogEx(WARNING, "\naborted via keyboard!\n");
-                    i = key_cnt;
-                    strategy = 3;
-                    break; // Exit the loop
-                }
-                uint32_t size = ((key_cnt - i)  > chunksize) ? chunksize : key_cnt - i;
-                // last chunk?
-                if (size == key_cnt - i) {
-                    lastChunk = true;
-                }
+            for (uint8_t strategy = 1; strategy < 3; strategy++) {
+                PrintAndLogEx(INFO, "Running strategy %u", strategy);
+                // main keychunk loop
+                for (uint32_t i = 0; i < key_cnt; i += chunksize) {
 
-                res = mf_check_keys_fast(sector_cnt, firstChunk, lastChunk, strategy, size, keyBlock + (i * MIFARE_KEY_SIZE), e_sector, false, verbose);
-                if (firstChunk) {
-                    firstChunk = false;
-                }
-                // all keys,  aborted
-                if (res == PM3_SUCCESS) {
-                    i = key_cnt;
-                    strategy = 3;
-                    break; // Exit the loop
-                }
-            } // end chunks of keys
-            firstChunk = true;
-            lastChunk = false;
-        } // end strategy
+                    if (kbd_enter_pressed()) {
+                        PrintAndLogEx(WARNING, "\naborted via keyboard!\n");
+                        i = key_cnt;
+                        strategy = 3;
+                        break; // Exit the loop
+                    }
+
+                    uint32_t size = ((key_cnt - i)  > chunksize) ? chunksize : key_cnt - i;
+                    // last chunk?
+                    if (size == key_cnt - i) {
+                        lastChunk = true;
+                    }
+
+                    res = mf_check_keys_fast(sector_cnt, firstChunk, lastChunk, strategy, size, keyBlock + (i * MIFARE_KEY_SIZE), e_sector, false, verbose);
+                    if (firstChunk) {
+                        firstChunk = false;
+                    }
+                    // all keys,  aborted
+                    if (res == PM3_SUCCESS) {
+                        i = key_cnt;
+                        strategy = 3;
+                        break; // Exit the loop
+                    }
+                } // end chunks of keys
+                firstChunk = true;
+                lastChunk = false;
+            } // end strategy
+        }
     }
 
     // Analyse the dictionary attack
@@ -2905,8 +2939,9 @@ static int CmdHF14AMfAutoPWN(const char *Cmd) {
 
             isOK = mf_dark_side(mfFirstBlockOfSector(sectorno), MIFARE_AUTH_KEYA + keytype, &key64);
 
-            if (isOK != PM3_SUCCESS)
+            if (isOK != PM3_SUCCESS) {
                 goto noValidKeyFound;
+            }
 
             PrintAndLogEx(SUCCESS, "Found valid key [ " _GREEN_("%012" PRIx64) " ]\n", key64);
 
@@ -2923,6 +2958,15 @@ static int CmdHF14AMfAutoPWN(const char *Cmd) {
 
 noValidKeyFound:
             PrintAndLogEx(FAILED, "No usable key was found!");
+            if (use_flashmemory == false && fnlen == 0) {
+                PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf mf autopwn -f mfc_default_keys")"`  i.e. the Randy special");
+            }
+
+            if (has_staticnonce == NONCE_STATIC_ENC) {
+                PrintAndLogEx(HINT, "Hint: Static encrypted nonce detected, run `" _YELLOW_("script run fm11rf08s_recovery.py") "`");
+            }
+
+            DropField();
             free(keyBlock);
             free(e_sector);
             free(fptr);
@@ -3250,7 +3294,7 @@ all_found:
     bytes = block_cnt * MFBLOCK_SIZE;
     uint8_t *dump = calloc(bytes, sizeof(uint8_t));
     if (dump == NULL) {
-        PrintAndLogEx(ERR, "Fail, cannot allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         free(e_sector);
         free(fptr);
         return PM3_EMALLOC;
@@ -3280,10 +3324,10 @@ all_found:
         return PM3_ESOFT;
     }
 
-    strncpy(filename, fptr, sizeof(filename) - 1);
+    strncpy(outfilename, fptr, sizeof(outfilename) - 1);
     free(fptr);
 
-    pm3_save_mf_dump(filename, dump, bytes, jsfCardMemory);
+    pm3_save_mf_dump(outfilename, dump, bytes, jsfCardMemory);
     free(dump);
 
 out:
@@ -3291,6 +3335,7 @@ out:
     t1 = msclock() - t1;
     PrintAndLogEx(INFO, "autopwn execution time: " _YELLOW_("%.0f") " seconds", (float)t1 / 1000.0);
 
+    DropField();
     free(e_sector);
     return PM3_SUCCESS;
 }
@@ -3382,6 +3427,11 @@ static int CmdHF14AMfChk_fast(const char *Cmd) {
 
     uint8_t *keyBlock = NULL;
     uint32_t keycnt = 0;
+    // If we use the dictionary in flash memory, we don't want to load keys
+    // from hard drive dictionary as it could exceed BigBuf capacity
+    if (use_flashmemory) {
+        fnlen = 0;
+    }
     int ret = mf_load_keys(&keyBlock, &keycnt, key, keylen, filename, fnlen, load_default);
     if (ret != PM3_SUCCESS) {
         return ret;
@@ -3408,7 +3458,7 @@ static int CmdHF14AMfChk_fast(const char *Cmd) {
     }
     if (use_flashmemory) {
         PrintAndLogEx(SUCCESS, "Using dictionary in flash memory");
-        mf_check_keys_fast_ex(sectorsCnt, true, true, 1, 0, keyBlock, e_sector, use_flashmemory, false, false, singleSectorParams);
+        mf_check_keys_fast_ex(sectorsCnt, true, true, 1, keycnt, keyBlock, e_sector, use_flashmemory, false, false, singleSectorParams);
     } else {
 
         // strategies. 1= deep first on sector 0 AB,  2= width first on all sectors
@@ -3959,9 +4009,13 @@ static int CmdHF14AMfChk(const char *Cmd) {
                 SendCommandNG(CMD_HF_MIFARE_READBL, (uint8_t *)&payload, sizeof(mf_readblock_t));
 
                 PacketResponseNG resp;
-                if (!WaitForResponseTimeout(CMD_HF_MIFARE_READBL, &resp, 1500)) continue;
+                if (WaitForResponseTimeout(CMD_HF_MIFARE_READBL, &resp, 1500) == false) {
+                    continue;
+                }
 
-                if (resp.status != PM3_SUCCESS) continue;
+                if (resp.status != PM3_SUCCESS) {
+                    continue;
+                }
 
                 uint8_t *data = resp.data.asBytes;
                 key64 = bytes_to_num(data + 10, MIFARE_KEY_SIZE);
@@ -4024,7 +4078,7 @@ out:
     // Disable fast mode and send a dummy command to make it effective
     g_conn.block_after_ACK = false;
     SendCommandNG(CMD_PING, NULL, 0);
-    if (!WaitForResponseTimeout(CMD_PING, NULL, 1000)) {
+    if (WaitForResponseTimeout(CMD_PING, NULL, 1000) == false) {
         PrintAndLogEx(WARNING, "command execution time out");
         return PM3_ETIMEOUT;
     }
@@ -4469,11 +4523,11 @@ void printKeyTableEx(size_t sectorscnt, sector_t *e_sector, uint8_t start_sector
 
     // MAD detection
     if (e_sector[MF_MAD1_SECTOR].foundKey[0] && e_sector[MF_MAD1_SECTOR].Key[0] == 0xA0A1A2A3A4A5) {
-        PrintAndLogEx(HINT, "MAD key detected. Try " _YELLOW_("`hf mf mad`") " for more details");
+        PrintAndLogEx(HINT, "Hint: MAD key detected. Try " _YELLOW_("`hf mf mad`") " for more details");
     }
     // NDEF detection
     if (has_ndef_key) {
-        PrintAndLogEx(HINT, "NDEF key detected. Try " _YELLOW_("`hf mf ndefread`") " for more details");
+        PrintAndLogEx(HINT, "Hint: NDEF key detected. Try " _YELLOW_("`hf mf ndefread`") " for more details");
     }
     PrintAndLogEx(NORMAL, "");
 }
@@ -4712,7 +4766,7 @@ int CmdHF14AMfELoad(const char *Cmd) {
         SendCommandNG(CMD_SPIFFS_ELOAD, (uint8_t *)filename, fnlen);
         PacketResponseNG resp;
         if (WaitForResponseTimeout(CMD_SPIFFS_ELOAD, &resp, 2000) == false) {
-            PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+            PrintAndLogEx(WARNING, "timeout while waiting for reply");
             return PM3_ETIMEOUT;
         }
 
@@ -4794,14 +4848,14 @@ int CmdHF14AMfELoad(const char *Cmd) {
     PrintAndLogEx(NORMAL, "");
 
     if (block_width == MFU_BLOCK_SIZE) {
-        PrintAndLogEx(HINT, "You are ready to simulate. See " _YELLOW_("`hf mfu sim -h`"));
+        PrintAndLogEx(HINT, "Hint: You are ready to simulate. See `" _YELLOW_("hf mfu sim -h`") "`");
         // MFU / NTAG
         if ((cnt != block_cnt)) {
             PrintAndLogEx(WARNING, "Warning, Ultralight/Ntag file content, Loaded %d blocks of expected %d blocks into emulator memory", cnt, block_cnt);
             return PM3_SUCCESS;
         }
     } else {
-        PrintAndLogEx(HINT, "You are ready to simulate. See " _YELLOW_("`hf mf sim -h`"));
+        PrintAndLogEx(HINT, "Hint: You are ready to simulate. See `" _YELLOW_("hf mf sim -h") "`");
         // MFC
         if ((cnt != block_cnt)) {
             PrintAndLogEx(WARNING, "Error, file content, Only loaded %d blocks, must be %d blocks into emulator memory", cnt, block_cnt);
@@ -4867,7 +4921,7 @@ static int CmdHF14AMfESave(const char *Cmd) {
     // reserv memory
     uint8_t *dump = calloc(bytes, sizeof(uint8_t));
     if (dump == NULL) {
-        PrintAndLogEx(WARNING, "Fail, cannot allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     memset(dump, 0, bytes);
@@ -4945,7 +4999,7 @@ static int CmdHF14AMfEView(const char *Cmd) {
 
     uint8_t *dump = calloc(bytes, sizeof(uint8_t));
     if (dump == NULL) {
-        PrintAndLogEx(WARNING, "Fail, cannot allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -5140,7 +5194,7 @@ static int CmdHF14AMfEKeyPrn(const char *Cmd) {
     memcpy(uid, data, sizeof(uid));
 
     // download keys from EMUL
-    for (int i = 0; i < sectors_cnt; i++) {
+    for (uint8_t i = 0; i < sectors_cnt; i++) {
 
         if (mf_eml_get_mem(data, mfFirstBlockOfSector(i) + mfNumBlocksPerSector(i) - 1, 1) != PM3_SUCCESS) {
             PrintAndLogEx(WARNING, "error get block %d", mfFirstBlockOfSector(i) + mfNumBlocksPerSector(i) - 1);
@@ -5514,7 +5568,7 @@ static int CmdHF14AMfCLoad(const char *Cmd) {
 
         if (mf_chinese_set_block(blockno, data + (MFBLOCK_SIZE * blockno), NULL, flags)) {
             PrintAndLogEx(WARNING, "Can't set magic card block: %d", blockno);
-            PrintAndLogEx(HINT, "Verify that it is a GDM and not USCUID derivative");
+            PrintAndLogEx(HINT, "Hint: Verify that it is a GDM and not USCUID derivative");
             free(data);
             return PM3_ESOFT;
         }
@@ -5538,11 +5592,11 @@ static int CmdHF14AMfCLoad(const char *Cmd) {
         return PM3_EFILE;
     }
 
-    PrintAndLogEx(SUCCESS, 
-        "Card loaded " _YELLOW_("%d") " blocks from %s"
-        , block_cnt
-        , (fill_from_emulator ? "emulator memory" : "file")
-    );
+    PrintAndLogEx(SUCCESS,
+                  "Card loaded " _YELLOW_("%d") " blocks from %s"
+                  , block_cnt
+                  , (fill_from_emulator ? "emulator memory" : "file")
+                 );
     PrintAndLogEx(INFO, "Done!");
     return PM3_SUCCESS;
 }
@@ -5741,7 +5795,7 @@ static int CmdHF14AMfCSave(const char *Cmd) {
     uint16_t bytes = block_cnt * MFBLOCK_SIZE;
     uint8_t *dump = calloc(bytes, sizeof(uint8_t));
     if (dump == NULL) {
-        PrintAndLogEx(WARNING, "Fail, cannot allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -5760,7 +5814,7 @@ static int CmdHF14AMfCSave(const char *Cmd) {
 
         if (mf_chinese_get_block(i, dump + (i * MFBLOCK_SIZE), flags)) {
             PrintAndLogEx(WARNING, "Can't get magic card block: %d", i);
-            PrintAndLogEx(HINT, "Verify your card size, and try again or try another tag position");
+            PrintAndLogEx(HINT, "Hint: Verify your card size and try again or try another tag position");
             free(dump);
             return PM3_ESOFT;
         }
@@ -5891,7 +5945,7 @@ static int CmdHF14AMfCView(const char *Cmd) {
     uint16_t bytes = block_cnt * MFBLOCK_SIZE;
     uint8_t *dump = calloc(bytes, sizeof(uint8_t));
     if (dump == NULL) {
-        PrintAndLogEx(WARNING, "Fail, cannot allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -5909,7 +5963,7 @@ static int CmdHF14AMfCView(const char *Cmd) {
 
         if (mf_chinese_get_block(i, dump + (i * MFBLOCK_SIZE), flags)) {
             PrintAndLogEx(WARNING, "Can't get magic card block: " _YELLOW_("%u"), i);
-            PrintAndLogEx(HINT, "Verify your card size, and try again or try another tag position");
+            PrintAndLogEx(HINT, "Hint: Verify your card size and try again or try another tag position");
             free(dump);
             return PM3_ESOFT;
         }
@@ -6130,7 +6184,9 @@ static int CmdHF14AMfice(const char *Cmd) {
         clearCommandBuffer();
         SendCommandMIX(CMD_HF_MIFARE_ACQ_NONCES, blockNo + keyType * 0x100, trgBlockNo + trgKeyType * 0x100, flags, NULL, 0);
 
-        if (!WaitForResponseTimeout(CMD_ACK, &resp, 3000)) goto out;
+        if (WaitForResponseTimeout(CMD_ACK, &resp, 3000) == false) {
+            goto out;
+        }
         if (resp.oldarg[0])  goto out;
 
         uint32_t items = resp.oldarg[2];
@@ -6278,7 +6334,8 @@ static int CmdHF14AMfMAD(const char *Cmd) {
         if (sector > -1) {
 
             // decode it
-            PrintAndLogEx(INFO, "");
+            PrintAndLogEx(NORMAL, "");
+            PrintAndLogEx(INFO, "------------------------- " _CYAN_("Wiegand") " ---------------------------");
             PrintAndLogEx(INFO, _CYAN_("HID PACS detected"));
 
             uint8_t pacs_sector[MFBLOCK_SIZE * 3] = {0};
@@ -6301,7 +6358,6 @@ static int CmdHF14AMfMAD(const char *Cmd) {
 
                 PrintAndLogEx(SUCCESS, "Binary... " _GREEN_("%s"), pbin);
 
-                PrintAndLogEx(INFO, "Wiegand decode");
                 decode_wiegand(top, mid, bot, 0);
             }
         }
@@ -6553,7 +6609,7 @@ int CmdHFMFNDEFRead(const char *Cmd) {
 
     if (mf_read_sector(MF_MAD1_SECTOR, MF_KEY_A, g_mifare_mad_key, sector0)) {
         PrintAndLogEx(ERR, "error, read sector 0. card doesn't have MAD or doesn't have MAD on default keys");
-        PrintAndLogEx(HINT, "Try " _YELLOW_("`hf mf ndefread -k `") " with your custom key");
+        PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`hf mf ndefread -k `") " with your custom key");
         return PM3_ESOFT;
     }
 
@@ -6629,10 +6685,10 @@ int CmdHFMFNDEFRead(const char *Cmd) {
     }
 
     if (verbose == false) {
-        PrintAndLogEx(HINT, "Try " _YELLOW_("`hf mf ndefread -v`") " for more details");
+        PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`hf mf ndefread -v`") " for more details");
     } else {
         if (verbose2 == false) {
-            PrintAndLogEx(HINT, "Try " _YELLOW_("`hf mf ndefread -vv`") " for more details");
+            PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`hf mf ndefread -vv`") " for more details");
         }
     }
     return PM3_SUCCESS;
@@ -6918,7 +6974,7 @@ int CmdHFMFNDEFWrite(const char *Cmd) {
     int res = mf_check_keys(0, MF_KEY_A, true, 1, (uint8_t *)g_mifare_mad_key, &key64);
     if (res != PM3_SUCCESS) {
         PrintAndLogEx(FAILED, "Sector 0 failed to authenticate with MAD default key");
-        PrintAndLogEx(HINT, "Verify that the tag NDEF formatted");
+        PrintAndLogEx(HINT, "Hint: Verify that the tag NDEF formatted");
         return res;
     }
 
@@ -6992,7 +7048,7 @@ int CmdHFMFNDEFWrite(const char *Cmd) {
     uint8_t sector0[MFBLOCK_SIZE * 4] = {0};
     if (mf_read_sector(MF_MAD1_SECTOR, MF_KEY_A, g_mifare_mad_key, sector0)) {
         PrintAndLogEx(ERR, "error, reading sector 0. Card doesn't have MAD or doesn't have MAD on default keys");
-        PrintAndLogEx(HINT, "Try " _YELLOW_("`hf mf ndefread -k `") " with your custom key");
+        PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`hf mf ndefread -k `") " with your custom key");
         return PM3_ESOFT;
     }
 
@@ -7001,7 +7057,7 @@ int CmdHFMFNDEFWrite(const char *Cmd) {
     if (m4) {
         if (mf_read_sector(MF_MAD2_SECTOR, MF_KEY_A, g_mifare_mad_key, sector10)) {
             PrintAndLogEx(ERR, "error, reading sector 10. Card doesn't have MAD or doesn't have MAD on default keys");
-            PrintAndLogEx(HINT, "Try " _YELLOW_("`hf mf ndefread -k `") " with your custom key");
+            PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`hf mf ndefread -k `") " with your custom key");
             return PM3_ESOFT;
         }
     }
@@ -7223,7 +7279,7 @@ static int CmdHf14AGen3UID(const char *Cmd) {
     int res = mf_chinese_gen_3_uid(uid, uidlen, old_uid);
     if (res != PM3_SUCCESS) {
         PrintAndLogEx(ERR, "Can't set UID");
-        PrintAndLogEx(HINT, "Are you sure your card is a Gen3 ?");
+        PrintAndLogEx(HINT, "Hint: Are you sure your card is a Gen3?");
         return PM3_ESOFT;
     }
 
@@ -7903,6 +7959,7 @@ static int CmdHF14AMfView(const char *Cmd) {
         UDATA d;
         d.bytes = calloc(bytes_read, sizeof(uint8_t));
         if (d.bytes == NULL) {
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             return PM3_EMALLOC;
         }
         uint16_t dlen = 0;
@@ -8260,13 +8317,14 @@ static int CmdHF14AGen4Load(const char *cmd) {
         arg_param_begin,
         arg_lit0(NULL, "mini", "MIFARE Classic Mini / S20"),
         arg_lit0(NULL, "1k", "MIFARE Classic 1k / S50 (def)"),
+        arg_lit0(NULL, "1k+",  "MIFARE Classic Ev1 1k / S50"),
         arg_lit0(NULL, "2k", "MIFARE Classic/Plus 2k"),
         arg_lit0(NULL, "4k", "MIFARE Classic 4k / S70"),
         arg_str0("p", "pwd", "<hex>", "password 4bytes"),
         arg_lit0("v", "verbose", "verbose output"),
         arg_str0("f", "file", "<fn>", "Specify a filename for dump file"),
         arg_lit0(NULL, "emu", "from emulator memory"),
-        arg_int0(NULL, "start", "<dec>", "index of block to start writing (default 0)"),
+        arg_int0(NULL, "start", "<dec>", "index of block to start writing (def 0)"),
         arg_int0(NULL, "end", "<dec>", "index of block to end writing (default last block)"),
         arg_param_end
     };
@@ -8371,7 +8429,7 @@ static int CmdHF14AGen4Load(const char *cmd) {
     if (fill_from_emulator) {
         data = calloc(block_cnt * MFBLOCK_SIZE, sizeof(uint8_t));
         if (data == NULL) {
-            PrintAndLogEx(WARNING, "Fail, cannot allocate memory");
+            PrintAndLogEx(WARNING, "Failed to allocate memory");
             return PM3_EMALLOC;
         }
 
@@ -8425,7 +8483,7 @@ static int CmdHF14AGen4Load(const char *cmd) {
         int res = mfG4SetBlock(pwd, blockno, data + (blockno * MFBLOCK_SIZE), flags);
         if (res !=  PM3_SUCCESS) {
             PrintAndLogEx(WARNING, "Can't set magic card block: %d. error=%d", blockno, res);
-            PrintAndLogEx(HINT, "Verify your card size, and try again or try another tag position");
+            PrintAndLogEx(HINT, "Hint: Verify your card size and try again or try another tag position");
             free(data);
             return PM3_ESOFT;
         }
@@ -8436,11 +8494,11 @@ static int CmdHF14AGen4Load(const char *cmd) {
         free(data);
     }
 
-    PrintAndLogEx(SUCCESS, 
-        "Card loaded " _YELLOW_("%d") " blocks from %s"
-        , end - start + 1
-        , (fill_from_emulator ? "emulator memory" : "file")
-    );
+    PrintAndLogEx(SUCCESS,
+                  "Card loaded " _YELLOW_("%d") " blocks from %s"
+                  , end - start + 1
+                  , (fill_from_emulator ? "emulator memory" : "file")
+                 );
     PrintAndLogEx(INFO, "Done!");
     return PM3_SUCCESS;
 }
@@ -8573,7 +8631,7 @@ static int CmdHF14AGen4View(const char *Cmd) {
     uint16_t bytes = block_cnt * MFBLOCK_SIZE;
     uint8_t *dump = calloc(bytes, sizeof(uint8_t));
     if (dump == NULL) {
-        PrintAndLogEx(WARNING, "Fail, cannot allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -8586,7 +8644,7 @@ static int CmdHF14AGen4View(const char *Cmd) {
         int res = mfG4GetBlock(pwd, i, dump + (i * MFBLOCK_SIZE), flags);
         if (res !=  PM3_SUCCESS) {
             PrintAndLogEx(WARNING, "Can't get magic card block: %u. error=%d", i, res);
-            PrintAndLogEx(HINT, "Verify your card size, and try again or try another tag position");
+            PrintAndLogEx(HINT, "Hint: Verify your card size and try again or try another tag position");
             free(dump);
             return PM3_ESOFT;
         }
@@ -8716,7 +8774,7 @@ static int CmdHF14AGen4Save(const char *Cmd) {
     uint16_t bytes = block_cnt * MFBLOCK_SIZE;
     uint8_t *dump = calloc(bytes, sizeof(uint8_t));
     if (dump == NULL) {
-        PrintAndLogEx(WARNING, "Fail, cannot allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
 
@@ -8736,7 +8794,7 @@ static int CmdHF14AGen4Save(const char *Cmd) {
         if (res !=  PM3_SUCCESS) {
             PrintAndLogEx(NORMAL, "");
             PrintAndLogEx(WARNING, "Can't get magic card block: %u. error=%d", i, res);
-            PrintAndLogEx(HINT, "Verify your card size, and try again or try another tag position");
+            PrintAndLogEx(HINT, "Hint: Verify your card size and try again or try another tag position");
             free(dump);
             return PM3_ESOFT;
         }
@@ -9074,7 +9132,7 @@ static int CmdHF14AGen4_GDM_SetCfg(const char *Cmd) {
 
     if (resp.status == PM3_SUCCESS) {
         PrintAndLogEx(SUCCESS, "Write ( " _GREEN_("ok") " )");
-        PrintAndLogEx(HINT, "try `" _YELLOW_("hf mf gdmcfg") "` to verify");
+        PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf mf gdmcfg") "` to verify");
     } else {
         PrintAndLogEx(FAILED, "Write ( " _RED_("fail") " )");
     }
@@ -9157,7 +9215,7 @@ static int CmdHF14AGen4_GDM_SetBlk(const char *Cmd) {
 
     if (resp.status == PM3_SUCCESS) {
         PrintAndLogEx(SUCCESS, "Write ( " _GREEN_("ok") " )");
-        PrintAndLogEx(HINT, "try `" _YELLOW_("hf mf rdbl") "` to verify");
+        PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("hf mf rdbl") "` to verify");
     } else if (resp.status == PM3_ETEAROFF) {
         PrintAndLogEx(INFO, "Tear off triggered");
         return resp.status;
@@ -9858,7 +9916,6 @@ static int CmdHF14AMfInfo(const char *Cmd) {
         PrintAndLogEx(SUCCESS, "Static nonce... " _YELLOW_("yes"));
     }
 
-
     if (res == NONCE_NORMAL) {
         // not static
         res = detect_classic_prng();
@@ -9899,6 +9956,10 @@ static int CmdHF14AMfInfo(const char *Cmd) {
         if (do_nack_test) {
             detect_classic_nackbug(verbose);
         }
+    }
+
+    if (res == NONCE_STATIC_ENC) {
+        PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("script run fm11rf08s_recovery.py") "`");
     }
 
     if (setDeviceDebugLevel(dbg_curr, false) != PM3_SUCCESS) {
@@ -10111,10 +10172,10 @@ static int CmdHF14AMfISEN(const char *Cmd) {
 
             uint8_t *dump = calloc(bytes, sizeof(uint8_t));
             if (dump == NULL) {
-                PrintAndLogEx(WARNING, "Fail, cannot allocate memory");
+                PrintAndLogEx(WARNING, "Failed to allocate memory");
                 return PM3_EFAILED;
             }
-            if (!GetFromDevice(BIG_BUF_EML, dump, bytes, 0, NULL, 0, NULL, 2500, false)) {
+            if (GetFromDevice(BIG_BUF_EML, dump, bytes, 0, NULL, 0, NULL, 2500, false) == false) {
                 PrintAndLogEx(WARNING, "Fail, transfer from device time-out");
                 free(dump);
                 return PM3_ETIMEOUT;
@@ -10155,6 +10216,11 @@ static int CmdHF14AMfISEN(const char *Cmd) {
     } else if (res == NONCE_STATIC_ENC) {
         PrintAndLogEx(SUCCESS, "Static enc nonce..... " _RED_("yes"));
     }
+
+    if (res == NONCE_STATIC_ENC) {
+        PrintAndLogEx(HINT, "Hint: Try `" _YELLOW_("script run fm11rf08s_recovery.py") "`");
+    }
+
     if (setDeviceDebugLevel(dbg_curr, false) != PM3_SUCCESS) {
         return PM3_EFAILED;
     }
@@ -10233,7 +10299,6 @@ static command_t CommandTable[] = {
     {"gdmparsecfg",   CmdHF14AGen4_GDM_ParseCfg, AlwaysAvailable, "Parse config block to card"},
     {"gdmsetblk",   CmdHF14AGen4_GDM_SetBlk, IfPm3Iso14443a, "Write block to card"},
     {"-----------", CmdHelp,                IfPm3Iso14443a,  "----------------------- " _CYAN_("ndef") " -----------------------"},
-//    {"ice",         CmdHF14AMfice,          IfPm3Iso14443a,  "collect MIFARE Classic nonces to file"},
     {"ndefformat",  CmdHFMFNDEFFormat,      IfPm3Iso14443a,  "Format MIFARE Classic Tag as NFC Tag"},
     {"ndefread",    CmdHFMFNDEFRead,        IfPm3Iso14443a,  "Read and print NDEF records from card"},
     {"ndefwrite",   CmdHFMFNDEFWrite,       IfPm3Iso14443a,  "Write NDEF records to card"},

@@ -265,7 +265,7 @@ static int CmdPrescoClone(const char *Cmd) {
         res = clone_t55xx_tag(blocks, ARRAYLEN(blocks));
     }
     PrintAndLogEx(SUCCESS, "Done!");
-    PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`lf presco reader`") " to verify");
+    PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`lf presco reader`") " to verify");
     return res;
 }
 
@@ -333,6 +333,10 @@ static int CmdPrescoSim(const char *Cmd) {
     getPrescoBits(fullcode, bs);
 
     lf_asksim_t *payload = calloc(1, sizeof(lf_asksim_t) + sizeof(bs));
+    if (payload == NULL) {
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
+        return PM3_EMALLOC;
+    }
     payload->encoding = 1;
     payload->invert = 0;
     payload->separator = 1;

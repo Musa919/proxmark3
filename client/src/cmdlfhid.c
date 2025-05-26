@@ -120,7 +120,7 @@ int demodHID(bool verbose) {
 
     uint8_t *bits = calloc(g_GraphTraceLen, sizeof(uint8_t));
     if (bits == NULL) {
-        PrintAndLogEx(FAILED, "failed to allocate memory");
+        PrintAndLogEx(WARNING, "Failed to allocate memory");
         return PM3_EMALLOC;
     }
     size_t size = getFromGraphBuffer(bits);
@@ -473,13 +473,13 @@ static int CmdHIDClone(const char *Cmd) {
     SendCommandNG(CMD_LF_HID_CLONE, (uint8_t *)&payload, sizeof(payload));
     PacketResponseNG resp;
     if (WaitForResponseTimeout(CMD_LF_HID_CLONE, &resp, 2000) == false) {
-        PrintAndLogEx(WARNING, "timeout while waiting for reply.");
+        PrintAndLogEx(WARNING, "timeout while waiting for reply");
         return PM3_ETIMEOUT;
     }
 
     if (resp.status == PM3_SUCCESS) {
         PrintAndLogEx(SUCCESS, "Done!");
-        PrintAndLogEx(HINT, "Hint: try " _YELLOW_("`lf hid reader`") " to verify");
+        PrintAndLogEx(HINT, "Hint: Try " _YELLOW_("`lf hid reader`") " to verify");
     } else {
         PrintAndLogEx(FAILED, "cloning ( " _RED_("fail") " )");
     }
@@ -575,11 +575,13 @@ static int CmdHIDBrute(const char *Cmd) {
         PrintAndLogEx(INFO, "Facility code.... %u", card_hi.FacilityCode);
         PrintAndLogEx(INFO, "Card number...... %" PRIu64, card_hi.CardNumber);
         PrintAndLogEx(INFO, "Delay............ " _YELLOW_("%d"), delay);
+
         if (strcmp(field, "fc") == 0) {
             PrintAndLogEx(INFO, "Field............ " _YELLOW_("fc"));
         } else if (strcmp(field, "cn") == 0) {
             PrintAndLogEx(INFO, "Field............ " _YELLOW_("cn"));
         }
+
         switch (direction) {
             case 0:
                 PrintAndLogEx(INFO, "Direction........ " _YELLOW_("both"));
@@ -594,6 +596,7 @@ static int CmdHIDBrute(const char *Cmd) {
                 break;
         }
     }
+
     PrintAndLogEx(NORMAL, "");
     PrintAndLogEx(INFO, "Started bruteforcing HID Prox reader");
     PrintAndLogEx(INFO, "Press " _GREEN_("pm3 button") " or " _GREEN_("<Enter>") " to abort simulation");

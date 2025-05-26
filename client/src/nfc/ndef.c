@@ -1080,6 +1080,10 @@ static int ndefDecodePayload(NDEFHeader_t *ndef, bool verbose) {
             }
 
             char *begin = calloc(ndef->TypeLen + 1, sizeof(char));
+            if (begin == NULL) {
+                PrintAndLogEx(WARNING, "Failed to allocate memory");
+                return PM3_EMALLOC;
+            }
             memcpy(begin, ndef->Type, ndef->TypeLen);
             str_lower(begin);
 
